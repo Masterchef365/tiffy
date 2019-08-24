@@ -1,7 +1,8 @@
 use crate::constants::ifd_entry_type_magic::*;
 use crate::raw_ifd::{RawIFD, RawIFDEntry};
-use byteorder::{ByteOrder, ReadBytesExt};
+use byteorder::{ByteOrder, ReadBytesExt, WriteBytesExt};
 use failure::Error;
+use std::io::Cursor;
 use std::io::{Seek, SeekFrom};
 
 /// IFD Entry Data, essentially a dynamic type for TIFF's tag values. All values are boxed slices,
@@ -70,7 +71,6 @@ impl IFDEntryData {
             reader.seek(SeekFrom::Start(tag_data_offset.into()))?;
             Self::from_raw_entry_field::<E, R>(reader, entry.tag_type, entry.count as usize)
         } else {
-            use std::io::Cursor;
             let mut tag_data_cursor = Cursor::new(entry.value_or_offset);
             Self::from_raw_entry_field::<E, _>(
                 &mut tag_data_cursor,
@@ -133,11 +133,44 @@ impl IFDEntryData {
             }
         })
     }
+
+    pub fn write_into<E: ByteOrder, W: WriteBytesExt + Seek>(
+        &self,
+        writer: &mut W,
+    ) -> Result<(), std::io::Error> {
+        match self {
+            Self::Undefined(bytes) => writer.write_all(&bytes),
+            Self::Ascii(strings) => {
+                for string in strings.iter() {
+                    writer.write_all(string.as_bytes())?;
+                    writer.write_all(&[0])?;
+                }
+                Ok(())
+            }
+            _ => unimplemented!(),
+        }
+    }
+
+    pub fn get_type_and_count(&self) -> (u16, u32) {
+        match self {
+            Self::Undefined(data) => (IFD_TYPE_UNDEFINED, data.len() as u32),
+            Self::Ascii(strings) => {
+                let mut length: u32 = 0;
+                for string in strings.iter() {
+                    length += string.as_bytes().len() as u32;
+                    length += 1; // For null character
+                }
+                (IFD_TYPE_ASCII, length)
+            }
+            _ => unimplemented!(),
+        }
+    }
 }
 
 #[derive(Debug, Clone)]
-pub enum IFDEntry {
-    Unknown { tag: u16, data: IFDEntryData },
+pub struct IFDEntry {
+    pub tag: u16,
+    pub data: IFDEntryData,
 }
 
 impl IFDEntry {
@@ -145,15 +178,43 @@ impl IFDEntry {
         reader: &mut R,
         entry: &RawIFDEntry,
     ) -> Result<Self, Error> {
-        Ok(Self::Unknown {
+        Ok(Self {
             tag: entry.tag,
             data: IFDEntryData::from_raw_entry::<E, R>(reader, entry)?,
+        })
+    }
+
+    pub fn to_raw_entry<E: ByteOrder, W: WriteBytesExt + Seek>(
+        &self,
+        writer: &mut W,
+    ) -> Result<RawIFDEntry, Error> {
+        let (tag_type, count) = self.data.get_type_and_count();
+
+        let mut value_field = vec![];
+        let mut cursor = Cursor::new(&mut value_field);
+
+        if tag_exceeds_ifd_field(tag_type, count) {
+            let data_offset = writer.seek(SeekFrom::Current(0))? as u32;
+            cursor.write_u32::<E>(data_offset)?;
+            self.data.write_into::<E, _>(writer)?;
+        } else {
+            self.data.write_into::<E, _>(&mut cursor)?;
+        }
+
+        let mut value_or_offset = [0; 4];
+        value_or_offset.copy_from_slice(&value_field[0..4]);
+
+        Ok(RawIFDEntry {
+            tag: self.tag,
+            tag_type,
+            count,
+            value_or_offset,
         })
     }
 }
 
 #[derive(Debug, Clone)]
-pub struct IFD(Vec<IFDEntry>);
+pub struct IFD(pub Vec<IFDEntry>);
 
 impl IFD {
     pub fn from_raw_ifd<E: ByteOrder, R: ReadBytesExt + Seek>(
@@ -166,6 +227,18 @@ impl IFD {
                 .iter()
                 .map(|entry| IFDEntry::from_raw_entry::<E, R>(reader, entry))
                 .collect::<Result<Vec<IFDEntry>, Error>>()?,
+        ))
+    }
+
+    pub fn to_raw_ifd<E: ByteOrder, W: WriteBytesExt + Seek>(
+        &self,
+        writer: &mut W,
+    ) -> Result<RawIFD, Error> {
+        Ok(RawIFD(
+            self.0
+                .iter()
+                .map(|entry| entry.to_raw_entry::<E, W>(writer))
+                .collect::<Result<Vec<RawIFDEntry>, Error>>()?,
         ))
     }
 }

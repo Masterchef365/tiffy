@@ -1,3 +1,6 @@
+/// Raw IFDs are the disk-stored versions of their counterparts - 
+/// they usually only contain the data necessary to point to other sources of data.
+
 use byteorder::{ByteOrder, ReadBytesExt, WriteBytesExt};
 use failure::Error;
 use std::io::{Seek, SeekFrom};
@@ -26,7 +29,10 @@ impl RawIFDEntry {
         })
     }
 
-    pub fn to_writer<E: ByteOrder, W: WriteBytesExt>(&self, writer: &mut W) -> Result<(), std::io::Error> {
+    pub fn to_writer<E: ByteOrder, W: WriteBytesExt>(
+        &self,
+        writer: &mut W,
+    ) -> Result<(), std::io::Error> {
         writer.write_u16::<E>(self.tag)?;
         writer.write_u16::<E>(self.tag_type)?;
         writer.write_u32::<E>(self.count)?;
@@ -39,9 +45,7 @@ impl RawIFDEntry {
 pub struct RawIFD(pub Vec<RawIFDEntry>);
 
 impl RawIFD {
-    pub fn from_reader<E: ByteOrder, R: ReadBytesExt>(
-        reader: &mut R,
-    ) -> Result<Self, std::io::Error> {
+    pub fn from_reader<E: ByteOrder, R: ReadBytesExt>(reader: &mut R) -> Result<Self, Error> {
         let entry_count = reader.read_u16::<E>()? as usize;
         let mut entries = Vec::with_capacity(entry_count);
         for _ in 0..entry_count {
@@ -50,7 +54,7 @@ impl RawIFD {
         Ok(Self(entries))
     }
 
-    pub fn to_writer<E: ByteOrder, W: WriteBytesExt>(&self, writer: &mut W) -> Result<(), std::io::Error> {
+    pub fn to_writer<E: ByteOrder, W: WriteBytesExt>(&self, writer: &mut W) -> Result<(), Error> {
         assert!(self.0.len() < std::u16::MAX as usize);
         writer.write_u16::<E>(self.0.len() as u16)?;
         for entry in &self.0 {
@@ -73,4 +77,24 @@ pub fn read_raw_ifds<E: ByteOrder, R: ReadBytesExt + Seek>(
         ifds.push(RawIFD::from_reader::<E, R>(reader)?);
     }
     Ok(ifds.into_boxed_slice())
+}
+
+pub fn write_raw_ifds<E: ByteOrder, W: WriteBytesExt + Seek>(
+    writer: &mut W,
+    ifds: Box<[RawIFD]>,
+) -> Result<(), Error> {
+    let mut ifd_iter = ifds.iter().peekable();
+    loop {
+        if let Some(ifd) = ifd_iter.next() {
+            ifd.to_writer::<E, W>(writer)?;
+            if ifd_iter.peek().is_some() {
+                let current_position = writer.seek(SeekFrom::Current(0))?;
+                writer.write_u32::<E>(current_position as u32 + 4)?;
+            }
+        } else {
+            writer.write_u32::<E>(0)?;
+            break;
+        }
+    }
+    Ok(())
 }

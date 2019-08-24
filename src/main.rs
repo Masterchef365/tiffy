@@ -7,39 +7,66 @@ mod tags;
 use byteorder::{BigEndian, ByteOrder, LittleEndian, NativeEndian, ReadBytesExt, WriteBytesExt};
 use failure::Error;
 use header::*;
-use raw_ifd::{read_raw_ifds, RawIFD, RawIFDEntry};
+use ifd::{IFDEntry, IFDEntryData, IFD};
+use raw_ifd::*;
 use std::io::{Cursor, Seek, SeekFrom};
-//use ifd::IFD;
 //use std::fs::File;
 //use std::io::{BufReader, BufWriter};
 
 fn main() -> Result<(), Error> {
     //let mut file = BufReader::new(File::open("/home/duncan/Untitled.tiff")?);
     //println!("{:?}", read_file(&mut file)?);
-    println!("{:?}", check_self::<NativeEndian>()?);
+    //Ok(())
+    check_self::<NativeEndian>()
+}
+
+fn check_self<E: ByteOrder>() -> Result<(), Error> {
+    let mut buffer = Cursor::new(Vec::new());
+
+    // Write magic numbers
+    header_magic_to_writer::<E, _>(&mut buffer)?;
+
+    // Remember the position of the IFD pointer and leave it zero for now
+    let first_ifd_pointer_position = buffer.seek(SeekFrom::Current(0))?;
+
+    // Leave the IFD pointer at zero for now...
+    buffer.write_u32::<E>(0)?;
+
+    let ifd_table = vec![IFD(vec![
+        IFDEntry {
+            tag: 1337,
+            data: IFDEntryData::Undefined(Box::new([0, 1, 2, 3])),
+        },
+        IFDEntry {
+            tag: 3621,
+            data: IFDEntryData::Ascii(Box::new(["Test test".to_string(), "Test test 2".to_string()])),
+        },
+    ])];
+    println!("{:#?}", ifd_table);
+
+    // Write image data here...
+
+    // Write the long field values and create raw IFDs
+    let mut raw_ifds = Vec::with_capacity(ifd_table.len());
+    for ifd in ifd_table {
+        raw_ifds.push(ifd.to_raw_ifd::<E, _>(&mut buffer)?);
+    }
+
+    // Write the raw IFDs that refer to those values
+    let ifd_table_position = buffer.seek(SeekFrom::Current(0))?;
+    write_raw_ifds::<E, _>(&mut buffer, raw_ifds.into_boxed_slice())?;
+
+    // Seek back to the IFD entry start and write the pointer
+    buffer.seek(SeekFrom::Start(first_ifd_pointer_position))?;
+    buffer.write_u32::<E>(ifd_table_position as u32)?;
+
+    // Rewind and read for debugging
+    buffer.seek(SeekFrom::Start(0))?;
+    println!("{:#?}", read_file(&mut buffer)?);
     Ok(())
 }
 
-fn check_self<E: ByteOrder>() -> Result<Box<[RawIFD]>, Error> {
-    let mut buffer = Cursor::new(Vec::new());
-    header_magic_to_writer::<E, _>(&mut buffer)?;
-    let pos = buffer.seek(SeekFrom::Current(0))?;
-    buffer.write_u32::<E>(pos as u32 + 4)?;
-    RawIFD(vec![RawIFDEntry {
-        tag: 1337,
-        tag_type: 1,
-        count: 1,
-        value_or_offset: [0, 0, 0, 1],
-    }])
-    .to_writer::<E, _>(&mut buffer)?;
-    buffer.write_u32::<E>(0)?;
-
-    buffer.seek(SeekFrom::Start(0))?;
-
-    read_file(&mut buffer)
-}
-
-fn read_file<R: ReadBytesExt + Seek>(reader: &mut R) -> Result<Box<[RawIFD]>, Error> {
+fn read_file<R: ReadBytesExt + Seek>(reader: &mut R) -> Result<Box<[IFD]>, Error> {
     if header_endian_is_little(reader)? {
         read_using_endian::<LittleEndian, _>(reader)
     } else {
@@ -49,7 +76,12 @@ fn read_file<R: ReadBytesExt + Seek>(reader: &mut R) -> Result<Box<[RawIFD]>, Er
 
 fn read_using_endian<E: ByteOrder, R: ReadBytesExt + Seek>(
     reader: &mut R,
-) -> Result<Box<[RawIFD]>, Error> {
+) -> Result<Box<[IFD]>, Error> {
     check_magic::<R, E>(reader)?;
-    read_raw_ifds::<E, _>(reader)
+    let raw_ifds = read_raw_ifds::<E, _>(reader)?;
+    let mut ifd_table = Vec::new();
+    for raw_ifd in raw_ifds.iter() {
+        ifd_table.push(IFD::from_raw_ifd::<E, _>(reader, &raw_ifd)?);
+    }
+    Ok(ifd_table.into_boxed_slice())
 }
