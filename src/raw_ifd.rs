@@ -1,6 +1,5 @@
-use crate::constants::header_magic::VERSION_MAGIC;
-use byteorder::{ByteOrder, ReadBytesExt};
-use failure::{Error, Fail};
+use byteorder::{ByteOrder, ReadBytesExt, WriteBytesExt};
+use failure::Error;
 use std::io::{Seek, SeekFrom};
 
 #[derive(Debug, Clone, Copy)]
@@ -26,6 +25,14 @@ impl RawIFDEntry {
             },
         })
     }
+
+    pub fn to_writer<E: ByteOrder, W: WriteBytesExt>(&self, writer: &mut W) -> Result<(), std::io::Error> {
+        writer.write_u16::<E>(self.tag)?;
+        writer.write_u16::<E>(self.tag_type)?;
+        writer.write_u32::<E>(self.count)?;
+        writer.write_all(&self.value_or_offset)?;
+        Ok(())
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -42,22 +49,21 @@ impl RawIFD {
         }
         Ok(Self(entries))
     }
-}
 
-#[derive(Fail, Debug)]
-enum IFDTableReadError {
-    #[fail(display = "Bad magic number: {:?}", magic)]
-    BadMagic { magic: u16 },
+    pub fn to_writer<E: ByteOrder, W: WriteBytesExt>(&self, writer: &mut W) -> Result<(), std::io::Error> {
+        assert!(self.0.len() < std::u16::MAX as usize);
+        writer.write_u16::<E>(self.0.len() as u16)?;
+        for entry in &self.0 {
+            entry.to_writer::<E, W>(writer)?;
+        }
+        Ok(())
+    }
 }
 
 pub fn read_raw_ifds<E: ByteOrder, R: ReadBytesExt + Seek>(
     reader: &mut R,
 ) -> Result<Box<[RawIFD]>, Error> {
-    let magic = reader.read_u16::<E>()?;
     let mut ifds = Vec::new();
-    if magic != VERSION_MAGIC {
-        return Err(IFDTableReadError::BadMagic { magic }.into());
-    }
     'ifd_load: loop {
         let next_ifd_offset = reader.read_u32::<E>()?;
         if next_ifd_offset == 0 {

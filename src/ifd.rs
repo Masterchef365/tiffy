@@ -1,15 +1,15 @@
+use crate::constants::ifd_entry_type_magic::*;
 use crate::raw_ifd::{RawIFD, RawIFDEntry};
 use byteorder::{ByteOrder, ReadBytesExt};
-use failure::{Error, Fail};
+use failure::Error;
 use std::io::{Seek, SeekFrom};
 
 /// IFD Entry Data, essentially a dynamic type for TIFF's tag values. All values are boxed slices,
 /// as TIFF values are all arrays.
 #[derive(Debug, Clone)]
-enum IFDEntryData {
+pub enum IFDEntryData {
     Undefined(Box<[u8]>),
     Byte(Box<[u8]>),
-    //Ascii(String),
     Ascii(Box<[String]>),
     Short(Box<[u16]>),
     Long(Box<[u32]>),
@@ -20,10 +20,11 @@ enum IFDEntryData {
     SRational(Box<[(i32, i32)]>),
     Double(Box<[f64]>),
     Float(Box<[f32]>), */
-    Unrecognized { tag_type: u16 },
+    /// The _type_ of the tag was unrecognized when reading
+    Unrecognized {
+        tag_type: u16,
+    },
 }
-
-use crate::constants::ifd_entry_type_magic::*;
 
 /// Decide whether or not the specified count of this tag type exceeds the 4-byte
 /// 'value_or_offset' field within the IFD tag entry.
@@ -52,7 +53,7 @@ fn tag_exceeds_ifd_field(tag_type: u16, count: u32) -> bool {
 }
 
 /// Convert a TIFF Ascii sequence to Strings
-fn tiff_ascii_to_strings<'a>(bytes: &'a [u8]) -> impl Iterator<Item = &'a str> {
+fn tiff_ascii_to_strings(bytes: &[u8]) -> impl Iterator<Item = &str> {
     bytes
         .split(|x| *x == b'\0')
         .filter(|x| !x.is_empty())
@@ -93,7 +94,7 @@ impl IFDEntryData {
             IFD_TYPE_ASCII => {
                 let mut buffer = vec![0; count];
                 reader.read_exact(&mut buffer)?;
-                IFDEntryData::Ascii(tiff_ascii_to_strings(&buffer).map(|string| String::from(string)).collect())
+                IFDEntryData::Ascii(tiff_ascii_to_strings(&buffer).map(String::from).collect())
             }
             IFD_TYPE_SHORT => {
                 let mut buffer = vec![0; count];
@@ -125,12 +126,10 @@ impl IFDEntryData {
             IFD_TYPE_SRATIONAL => unimplemented!("SRational IFD values"),
             IFD_TYPE_FLOAT => unimplemented!("Float IFD values"),
             IFD_TYPE_DOUBLE => unimplemented!("Double IFD values"),
-            other => {
+            _ => {
                 let mut buffer = vec![0; count];
                 reader.read_exact(&mut buffer)?;
-                IFDEntryData::Unrecognized {
-                    tag_type,
-                }
+                IFDEntryData::Unrecognized { tag_type }
             }
         })
     }
@@ -170,14 +169,3 @@ impl IFD {
         ))
     }
 }
-
-#[derive(Debug, Clone)]
-pub struct IFDTable(Vec<IFD>);
-
-/*
-impl IFDTable {
-    pub fn from_raw_ifds<E: ByteOrder>(raw_ifds: Box<[RawIFD]>) -> Self {
-
-    }
-}
-*/
