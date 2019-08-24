@@ -62,17 +62,18 @@ fn tiff_ascii_to_strings(bytes: &[u8]) -> impl Iterator<Item = &str> {
 }
 
 impl IFDEntryData {
-    fn from_raw_entry<E: ByteOrder, R: ReadBytesExt + Seek>(
+    /// Read the content from `reader` into this IFDEntryData, using the information from `entry`
+    pub fn from_raw_entry<E: ByteOrder, R: ReadBytesExt + Seek>(
         reader: &mut R,
         entry: &RawIFDEntry,
     ) -> Result<Self, Error> {
         if tag_exceeds_ifd_field(entry.tag_type, entry.count) {
             let tag_data_offset = entry.value_or_offset.as_ref().read_u32::<E>()?;
             reader.seek(SeekFrom::Start(tag_data_offset.into()))?;
-            Self::from_raw_entry_field::<E, R>(reader, entry.tag_type, entry.count as usize)
+            Self::from_raw_entry_reader::<E, R>(reader, entry.tag_type, entry.count as usize)
         } else {
             let mut tag_data_cursor = Cursor::new(entry.value_or_offset);
-            Self::from_raw_entry_field::<E, _>(
+            Self::from_raw_entry_reader::<E, _>(
                 &mut tag_data_cursor,
                 entry.tag_type,
                 entry.count as usize,
@@ -80,7 +81,7 @@ impl IFDEntryData {
         }
     }
 
-    fn from_raw_entry_field<E: ByteOrder, R: ReadBytesExt>(
+    fn from_raw_entry_reader<E: ByteOrder, R: ReadBytesExt>(
         reader: &mut R,
         tag_type: u16,
         count: usize,
@@ -134,12 +135,14 @@ impl IFDEntryData {
         })
     }
 
+    /// Dump the data from this entry into `writer`
     pub fn write_into<E: ByteOrder, W: WriteBytesExt + Seek>(
         &self,
         writer: &mut W,
     ) -> Result<(), std::io::Error> {
         match self {
             Self::Undefined(bytes) => writer.write_all(&bytes),
+            Self::Byte(bytes) => writer.write_all(&bytes),
             Self::Ascii(strings) => {
                 for string in strings.iter() {
                     writer.write_all(string.as_bytes())?;
@@ -147,13 +150,26 @@ impl IFDEntryData {
                 }
                 Ok(())
             }
+            Self::Short(shorts) => shorts
+                .iter()
+                .try_for_each(|short| writer.write_u16::<E>(*short)),
+            Self::Long(longs) => longs
+                .iter()
+                .try_for_each(|long| writer.write_u32::<E>(*long)),
+            Self::Rational(rationals) => rationals.iter().try_for_each(|(a, b)| {
+                writer
+                    .write_u32::<E>(*a)
+                    .and_then(|()| writer.write_u32::<E>(*b))
+            }),
             _ => unimplemented!(),
         }
     }
 
+    /// Get the `type` of data in this entry, and the value of the `count` field
     pub fn get_type_and_count(&self) -> (u16, u32) {
         match self {
             Self::Undefined(data) => (IFD_TYPE_UNDEFINED, data.len() as u32),
+            Self::Byte(data) => (IFD_TYPE_BYTE, data.len() as u32),
             Self::Ascii(strings) => {
                 let mut length: u32 = 0;
                 for string in strings.iter() {
@@ -162,6 +178,9 @@ impl IFDEntryData {
                 }
                 (IFD_TYPE_ASCII, length)
             }
+            Self::Short(data) => (IFD_TYPE_SHORT, data.len() as u32),
+            Self::Long(data) => (IFD_TYPE_LONG, data.len() as u32),
+            Self::Rational(data) => (IFD_TYPE_RATIONAL, data.len() as u32),
             _ => unimplemented!(),
         }
     }
@@ -174,6 +193,7 @@ pub struct IFDEntry {
 }
 
 impl IFDEntry {
+    /// Read the data from this raw entry, dereferencing offsets/pointers through `reader`
     pub fn from_raw_entry<E: ByteOrder, R: ReadBytesExt + Seek>(
         reader: &mut R,
         entry: &RawIFDEntry,
@@ -184,6 +204,7 @@ impl IFDEntry {
         })
     }
 
+    /// Convert this entry into a raw one, writing long data to `writer`
     pub fn to_raw_entry<E: ByteOrder, W: WriteBytesExt + Seek>(
         &self,
         writer: &mut W,

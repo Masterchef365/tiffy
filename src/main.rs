@@ -10,14 +10,14 @@ use header::*;
 use ifd::{IFDEntry, IFDEntryData, IFD};
 use raw_ifd::*;
 use std::io::{Cursor, Seek, SeekFrom};
-//use std::fs::File;
-//use std::io::{BufReader, BufWriter};
+use std::fs::File;
+use std::io::{BufReader, BufWriter};
 
 fn main() -> Result<(), Error> {
-    //let mut file = BufReader::new(File::open("/home/duncan/Untitled.tiff")?);
-    //println!("{:?}", read_file(&mut file)?);
-    //Ok(())
-    check_self::<NativeEndian>()
+    let mut file = BufReader::new(File::open("/home/duncan/Untitled.tiff")?);
+    println!("{:?}", read_file(&mut file)?);
+    Ok(())
+    //check_self::<NativeEndian>()
 }
 
 fn check_self<E: ByteOrder>() -> Result<(), Error> {
@@ -32,17 +32,32 @@ fn check_self<E: ByteOrder>() -> Result<(), Error> {
     // Leave the IFD pointer at zero for now...
     buffer.write_u32::<E>(0)?;
 
-    let ifd_table = vec![IFD(vec![
-        IFDEntry {
-            tag: 1337,
-            data: IFDEntryData::Undefined(Box::new([0, 1, 2, 3])),
-        },
-        IFDEntry {
-            tag: 3621,
-            data: IFDEntryData::Ascii(Box::new(["Test test".to_string(), "Test test 2".to_string()])),
-        },
-    ])];
-    println!("{:#?}", ifd_table);
+    let ifd_table = vec![
+        IFD(vec![
+            IFDEntry {
+                tag: 1337,
+                data: IFDEntryData::Undefined(Box::new([0, 1, 2, 3])),
+            },
+            IFDEntry {
+                tag: 3621,
+                data: IFDEntryData::Ascii(Box::new([
+                    "Test test".to_string(),
+                    "Test test 2".to_string(),
+                ])),
+            },
+        ]),
+        IFD(vec![
+            IFDEntry {
+                tag: 3280,
+                data: IFDEntryData::Rational(Box::new([(0, 1), (2, 3)])),
+            },
+            IFDEntry {
+                tag: 3280,
+                data: IFDEntryData::Long(Box::new([0, 1, 2, 3])),
+            },
+        ]),
+    ];
+    println!("{:?}", ifd_table);
 
     // Write image data here...
 
@@ -62,7 +77,7 @@ fn check_self<E: ByteOrder>() -> Result<(), Error> {
 
     // Rewind and read for debugging
     buffer.seek(SeekFrom::Start(0))?;
-    println!("{:#?}", read_file(&mut buffer)?);
+    println!("{:?}", read_file(&mut buffer)?);
     Ok(())
 }
 
@@ -79,9 +94,9 @@ fn read_using_endian<E: ByteOrder, R: ReadBytesExt + Seek>(
 ) -> Result<Box<[IFD]>, Error> {
     check_magic::<R, E>(reader)?;
     let raw_ifds = read_raw_ifds::<E, _>(reader)?;
-    let mut ifd_table = Vec::new();
-    for raw_ifd in raw_ifds.iter() {
-        ifd_table.push(IFD::from_raw_ifd::<E, _>(reader, &raw_ifd)?);
-    }
-    Ok(ifd_table.into_boxed_slice())
+    let ifd_table = raw_ifds
+        .iter()
+        .map(|raw_ifd| IFD::from_raw_ifd::<E, _>(reader, &raw_ifd))
+        .collect::<Result<Box<[_]>, _>>()?;
+    Ok(ifd_table)
 }
