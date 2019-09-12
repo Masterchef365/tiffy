@@ -11,7 +11,7 @@ enum HeaderError {
     BadMagic { magic: u16 },
 }
 
-pub fn header_endian_is_little<R: ReadBytesExt>(reader: &mut R) -> Result<bool, Error> {
+pub fn read_header_endian<R: ReadBytesExt>(reader: &mut R) -> Result<bool, Error> {
     let mut endian_magic = [0u8; 2];
     reader.read_exact(&mut endian_magic)?;
     match endian_magic {
@@ -22,7 +22,7 @@ pub fn header_endian_is_little<R: ReadBytesExt>(reader: &mut R) -> Result<bool, 
 }
 
 /// Check the magic number from this writer
-pub fn check_magic<R: ReadBytesExt, E: ByteOrder>(reader: &mut R) -> Result<(), Error> {
+pub fn read_header_magic<R: ReadBytesExt, E: ByteOrder>(reader: &mut R) -> Result<(), Error> {
     let magic = reader.read_u16::<E>()?;
     if magic != VERSION_MAGIC {
         Err(HeaderError::BadMagic { magic }.into())
@@ -37,7 +37,7 @@ fn endian_type_is_little<E: ByteOrder>() -> bool {
 }
 
 /// Write the header and magic number to a writer
-pub fn header_magic_to_writer<E: ByteOrder, W: Write>(
+pub fn write_header<E: ByteOrder, W: Write>(
     writer: &mut W,
 ) -> Result<(), std::io::Error> {
     if endian_type_is_little::<E>() {

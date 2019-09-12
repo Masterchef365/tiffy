@@ -5,6 +5,7 @@ use byteorder::{ByteOrder, ReadBytesExt, WriteBytesExt};
 use failure::Error;
 use std::io::{Seek, SeekFrom};
 
+/// A struct representing a disk-stored IFD value.
 #[derive(Debug, Clone, Copy)]
 pub struct RawIFDEntry {
     pub tag: u16,
@@ -14,6 +15,7 @@ pub struct RawIFDEntry {
 }
 
 impl RawIFDEntry {
+    /// Read the entry value from `reader`.
     pub fn from_reader<E: ByteOrder, R: ReadBytesExt>(
         reader: &mut R,
     ) -> Result<Self, std::io::Error> {
@@ -29,6 +31,7 @@ impl RawIFDEntry {
         })
     }
 
+    /// Write the entry value to `writer`. 
     pub fn to_writer<E: ByteOrder, W: WriteBytesExt>(
         &self,
         writer: &mut W,
@@ -41,10 +44,12 @@ impl RawIFDEntry {
     }
 }
 
+/// A struct representing a disk-stored IFD.
 #[derive(Debug, Clone)]
 pub struct RawIFD(pub Vec<RawIFDEntry>);
 
 impl RawIFD {
+    /// Read an entire IFD from `reader`
     pub fn from_reader<E: ByteOrder, R: ReadBytesExt>(reader: &mut R) -> Result<Self, Error> {
         let entry_count = reader.read_u16::<E>()? as usize;
         let mut entries = Vec::with_capacity(entry_count);
@@ -54,6 +59,7 @@ impl RawIFD {
         Ok(Self(entries))
     }
 
+    /// Write an entire IFD to `writer`
     pub fn to_writer<E: ByteOrder, W: WriteBytesExt>(&self, writer: &mut W) -> Result<(), Error> {
         assert!(self.0.len() < std::u16::MAX as usize);
         writer.write_u16::<E>(self.0.len() as u16)?;
@@ -81,7 +87,7 @@ pub fn read_raw_ifds<E: ByteOrder, R: ReadBytesExt + Seek>(
 
 pub fn write_raw_ifds<E: ByteOrder, W: WriteBytesExt + Seek>(
     writer: &mut W,
-    ifds: Box<[RawIFD]>,
+    ifds: &[RawIFD],
 ) -> Result<(), Error> {
     let mut ifd_iter = ifds.iter().peekable();
     loop {

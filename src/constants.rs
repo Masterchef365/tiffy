@@ -1,3 +1,4 @@
+#![allow(dead_code)]
 /// Magic numbers
 pub mod header_magic {
     pub const LITTLE_ENDIAN_MAGIC: [u8; 2] = [b'I', b'I'];

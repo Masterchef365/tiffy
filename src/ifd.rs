@@ -7,7 +7,7 @@ use std::io::{Seek, SeekFrom};
 
 /// IFD Entry Data, essentially a dynamic type for TIFF's tag values. All values are boxed slices,
 /// as TIFF values are all arrays.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum IFDEntryData {
     Undefined(Box<[u8]>),
     Byte(Box<[u8]>),
@@ -21,7 +21,7 @@ pub enum IFDEntryData {
     SRational(Box<[(i32, i32)]>),
     Double(Box<[f64]>),
     Float(Box<[f32]>), */
-    /// The _type_ of the tag was unrecognized when reading
+    /// The `type` field of the tag was unrecognized when reading
     Unrecognized {
         tag_type: u16,
     },
@@ -49,11 +49,13 @@ fn tag_exceeds_ifd_field(tag_type: u16, count: u32) -> bool {
         // 5+ byte per unit fields
         IFD_TYPE_RATIONAL => true,
         IFD_TYPE_SRATIONAL => true,
+
+        // Otherwise, assume it fits
         _ => false,
     }
 }
 
-/// Convert a TIFF Ascii sequence to Strings
+/// Convert a TIFF Ascii sequence to string slices
 fn tiff_ascii_to_strings(bytes: &[u8]) -> impl Iterator<Item = &str> {
     bytes
         .split(|x| *x == b'\0')
@@ -62,7 +64,7 @@ fn tiff_ascii_to_strings(bytes: &[u8]) -> impl Iterator<Item = &str> {
 }
 
 impl IFDEntryData {
-    /// Read the content from `reader` into this IFDEntryData, using the information from `entry`
+    /// Read the content from `reader` into this IFDEntryData, dereferencing offset pointers from `entry`
     pub fn from_raw_entry<E: ByteOrder, R: ReadBytesExt + Seek>(
         reader: &mut R,
         entry: &RawIFDEntry,
@@ -108,11 +110,9 @@ impl IFDEntryData {
                 IFDEntryData::Long(buffer.into_boxed_slice())
             }
             IFD_TYPE_RATIONAL => {
-                let mut u32_buffer = vec![0; count * 2];
-                reader.read_u32_into::<E>(&mut u32_buffer)?;
                 let mut rational_buffer = Vec::with_capacity(count);
-                for chunk in u32_buffer.chunks(2) {
-                    rational_buffer.push((chunk[0], chunk[1]));
+                for _ in 0..count {
+                    rational_buffer.push((reader.read_u32::<E>()?, reader.read_u32::<E>()?));
                 }
                 IFDEntryData::Rational(rational_buffer.into_boxed_slice())
             }
@@ -128,8 +128,8 @@ impl IFDEntryData {
             IFD_TYPE_FLOAT => unimplemented!("Float IFD values"),
             IFD_TYPE_DOUBLE => unimplemented!("Double IFD values"),
             _ => {
-                let mut buffer = vec![0; count];
-                reader.read_exact(&mut buffer)?;
+                //let mut buffer = vec![0; count];
+                //reader.read_exact(&mut buffer)?;
                 IFDEntryData::Unrecognized { tag_type }
             }
         })
@@ -186,7 +186,7 @@ impl IFDEntryData {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct IFDEntry {
     pub tag: u16,
     pub data: IFDEntryData,
@@ -211,7 +211,7 @@ impl IFDEntry {
     ) -> Result<RawIFDEntry, Error> {
         let (tag_type, count) = self.data.get_type_and_count();
 
-        let mut value_field = vec![];
+        let mut value_field = Vec::new();
         let mut cursor = Cursor::new(&mut value_field);
 
         if tag_exceeds_ifd_field(tag_type, count) {
@@ -234,7 +234,7 @@ impl IFDEntry {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct IFD(pub Vec<IFDEntry>);
 
 impl IFD {
