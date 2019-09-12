@@ -68,6 +68,15 @@ impl<R: ReadBytesExt + Seek> TiffReader<R> {
         self.is_little_endian
     }
 
+    //pub fn read_strip_streamed(&mut self, position: u64, length: u64) -> Item = impl Iterator<Item = u8> {}
+
+    pub fn read_strip(&mut self, position: u64, length: u64) -> Fallible<Box<[u8]>> {
+        let mut strip = vec![0; length as usize];
+        self.reader.seek(SeekFrom::Start(position))?;
+        self.reader.read_exact(&mut strip)?;
+        Ok(strip.into_boxed_slice())
+    }
+
     /// Returns an iterator over references to this file's IFDs
     pub fn ifds(&self) -> impl Iterator<Item = &IFD> {
         self.ifd_table.iter()

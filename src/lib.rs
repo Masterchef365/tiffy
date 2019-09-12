@@ -14,6 +14,7 @@ pub(crate) mod header;
 
 /// High-level IFD abstrations
 pub(crate) mod ifd;
+pub use ifd::*;
 
 /// Low-level IFD abstrations
 pub(crate) mod raw_ifd;

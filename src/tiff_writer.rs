@@ -64,4 +64,13 @@ impl<E: ByteOrder, W: Write + Seek> TiffWriter<E, W> {
 
         Ok(())
     }
+
+    //pub fn write_strip_stream(&mut self, strip: impl Iterator<Item = u8>) -> Fallible<u64> {}
+
+    /// Write a strip to the file, returning `(offset, len)`.
+    pub fn write_strip(&mut self, strip: &[u8]) -> Fallible<(u64, u64)> {
+        let offset = self.writer.seek(SeekFrom::Current(0))?;
+        self.writer.write_all(strip)?;
+        Ok((offset, strip.len() as u64))
+    }
 }

@@ -1,25 +1,44 @@
-use failure::Fallible;
+use failure::{format_err, Error, Fallible};
 use std::io::{Seek, SeekFrom};
 use tiff_concept::tags;
+use tiff_concept::IFDEntryData;
 use tiff_concept::{NativeEndian, TiffReader, TiffWriter};
 
 fn main() -> Fallible<()> {
-    let reader = TiffReader::from_path("/home/duncan/Downloads/test.tiff")?;
-    let mut fake_file = std::io::Cursor::new(Vec::new());
-    {
-        let mut writer = TiffWriter::<NativeEndian, _>::from_writer(&mut fake_file)?;
-        for ifd in reader.ifds() {
-            println!("{:?}", ifd);
-            writer.write_ifd(ifd)?;
-        }
-    }
+/*
+    let mut reader = TiffReader::from_path("/home/duncan/Downloads/test.tiff")?;
+    let mut writer = TiffWriter::<NativeEndian, _>::from_path("/home/duncan/wat.tiff")?;
+    let mut ifds = reader.ifds().cloned().collect::<Vec<_>>();
 
-    fake_file.seek(SeekFrom::Start(0))?; // It's rewind time!
-
-    let reader = TiffReader::from_reader(&mut fake_file)?;
-    for ifd in reader.ifds() {
-        println!("{:?}", ifd);
+    for ifd in ifds {
+        let strip_offsets = ifd.entries.iter().find_map(|x| {
+            if x.tag == tags::STRIP_OFFSETS {
+                Some(x.data.clone())
+            } else {
+                None
+            }
+        });
+        let strip_lengths = ifd.entries.iter().find_map(|x| {
+            if x.tag == tags::STRIP_BYTE_COUNTS {
+                Some(x.data.clone())
+            } else {
+                None
+            }
+        });
+        let (strip_offsets, strip_lengths) = match (strip_offsets, strip_lengths) {
+            (Some(IFDEntryData::Long(o)), Some(IFDEntryData::Long(l))) => (o, l),
+            other => return Err(format_err!("Got {:?}", other)),
+        };
+        let strips = strip_offsets
+            .iter()
+            .zip(strip_lengths.iter())
+            .map(|(offset, length)| reader.read_strip(*offset as u64, *length as u64))
+            .collect::<Fallible<Vec<_>>>()?;
+        let new_ifd = ifd.clone();
+        let strip_positions = strips.iter().map(|strip| writer.write_strip(strip)).collect::<Vec<_>>();
+        let new_
     }
+*/
     Ok(())
 }
 
