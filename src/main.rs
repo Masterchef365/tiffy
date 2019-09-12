@@ -5,7 +5,6 @@ use tiff_concept::IFDEntryData;
 use tiff_concept::{NativeEndian, TiffReader, TiffWriter};
 
 fn main() -> Fallible<()> {
-/*
     let mut reader = TiffReader::from_path("/home/duncan/Downloads/test.tiff")?;
     let mut writer = TiffWriter::<NativeEndian, _>::from_path("/home/duncan/wat.tiff")?;
     let mut ifds = reader.ifds().cloned().collect::<Vec<_>>();
@@ -34,11 +33,45 @@ fn main() -> Fallible<()> {
             .zip(strip_lengths.iter())
             .map(|(offset, length)| reader.read_strip(*offset as u64, *length as u64))
             .collect::<Fallible<Vec<_>>>()?;
-        let new_ifd = ifd.clone();
-        let strip_positions = strips.iter().map(|strip| writer.write_strip(strip)).collect::<Vec<_>>();
-        let new_
+
+        let mut new_ifd = ifd.clone();
+        let strip_positions = strips
+            .iter()
+            .map(|strip| writer.write_strip(strip))
+            .collect::<Fallible<Vec<_>>>()?;
+
+        match new_ifd
+            .entries
+            .iter_mut()
+            .find(|x| x.tag == tags::STRIP_OFFSETS)
+        {
+            Some(ref mut d) => {
+                d.data = IFDEntryData::Long(
+                    strip_positions
+                        .iter()
+                        .map(|(p, _)| *p as u32)
+                        .collect::<Box<[_]>>(),
+                )
+            }
+            None => unreachable!(),
+        }
+        match new_ifd
+            .entries
+            .iter_mut()
+            .find(|x| x.tag == tags::STRIP_BYTE_COUNTS)
+        {
+            Some(ref mut d) => {
+                d.data = IFDEntryData::Long(
+                    strip_positions
+                        .iter()
+                        .map(|(_, p)| *p as u32)
+                        .collect::<Box<[_]>>(),
+                )
+            }
+            None => unreachable!(),
+        }
+        writer.write_ifd(&new_ifd)?;
     }
-*/
     Ok(())
 }
 
