@@ -10,24 +10,14 @@ fn main() -> Fallible<()> {
     let mut ifds = reader.ifds().cloned().collect::<Vec<_>>();
 
     for ifd in ifds {
-        let strip_offsets = ifd.entries.iter().find_map(|x| {
-            if x.tag == tags::STRIP_OFFSETS {
-                Some(x.data.clone())
-            } else {
-                None
-            }
-        });
-        let strip_lengths = ifd.entries.iter().find_map(|x| {
-            if x.tag == tags::STRIP_BYTE_COUNTS {
-                Some(x.data.clone())
-            } else {
-                None
-            }
-        });
-        let (strip_offsets, strip_lengths) = match (strip_offsets, strip_lengths) {
+        let (strip_offsets, strip_lengths) = match (
+            ifd.get_tag(tags::STRIP_OFFSETS),
+            ifd.get_tag(tags::STRIP_BYTE_COUNTS),
+        ) {
             (Some(IFDEntryData::Long(o)), Some(IFDEntryData::Long(l))) => (o, l),
             other => return Err(format_err!("Got {:?}", other)),
         };
+
         let strips = strip_offsets
             .iter()
             .zip(strip_lengths.iter())
@@ -40,36 +30,19 @@ fn main() -> Fallible<()> {
             .map(|strip| writer.write_strip(strip))
             .collect::<Fallible<Vec<_>>>()?;
 
-        match new_ifd
-            .entries
-            .iter_mut()
-            .find(|x| x.tag == tags::STRIP_OFFSETS)
-        {
-            Some(ref mut d) => {
-                d.data = IFDEntryData::Long(
-                    strip_positions
-                        .iter()
-                        .map(|(p, _)| *p as u32)
-                        .collect::<Box<[_]>>(),
-                )
-            }
-            None => unreachable!(),
-        }
-        match new_ifd
-            .entries
-            .iter_mut()
-            .find(|x| x.tag == tags::STRIP_BYTE_COUNTS)
-        {
-            Some(ref mut d) => {
-                d.data = IFDEntryData::Long(
-                    strip_positions
-                        .iter()
-                        .map(|(_, p)| *p as u32)
-                        .collect::<Box<[_]>>(),
-                )
-            }
-            None => unreachable!(),
-        }
+        *new_ifd.get_tag_mut(tags::STRIP_OFFSETS).unwrap() = IFDEntryData::Long(
+            strip_positions
+                .iter()
+                .map(|(p, _)| *p as u32)
+                .collect::<Box<[_]>>(),
+        );
+
+        *new_ifd.get_tag_mut(tags::STRIP_BYTE_COUNTS).unwrap() = IFDEntryData::Long(
+            strip_positions
+                .iter()
+                .map(|(_, p)| *p as u32)
+                .collect::<Box<[_]>>(),
+        );
         writer.write_ifd(&new_ifd)?;
     }
     Ok(())

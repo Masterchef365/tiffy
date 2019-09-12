@@ -273,4 +273,15 @@ impl IFD {
                 .collect::<Result<Vec<RawIFDEntry>, Error>>()?,
         })
     }
+
+    pub fn get_tag(&self, tag: u16) -> Option<&IFDEntryData> {
+        self.entries.iter().find(|x| x.tag == tag).map(|x| &x.data)
+    }
+
+    pub fn get_tag_mut(&mut self, tag: u16) -> Option<&mut IFDEntryData> {
+        self.entries
+            .iter_mut()
+            .find(|x| x.tag == tag)
+            .map(|x| &mut x.data)
+    }
 }
