@@ -41,8 +41,7 @@ fn iterate_null_terminated_ascii_as_utf8(bytes: &[u8]) -> impl Iterator<Item = &
         .map(|x| std::str::from_utf8(x).unwrap())
 }
 
-/// IFD Entry Data, essentially a dynamic type representing TIFF's fields.
-/// All values are boxed slices, as TIFF fields are all arrays.
+/// IFD Entry Data, essentially a dynamic type representing TIFF's array fields.
 #[derive(Debug, Clone, PartialEq)]
 pub enum IFDEntryData {
     Undefined(Box<[u8]>),
@@ -53,7 +52,7 @@ pub enum IFDEntryData {
     Rational(Box<[(u32, u32)]>),
     /* Sbyte(Box<[i8]>),
     Sshort(Box<[i16]>),
-    Slong(Box<[u32]>),
+    Slong(Box<[i32]>),
     SRational(Box<[(i32, i32)]>),
     Double(Box<[f64]>),
     Float(Box<[f32]>), */
@@ -196,6 +195,7 @@ impl IFDEntryData {
     }
 }
 
+/// A single entry (tag, field) in an IFD
 #[derive(Debug, Clone, PartialEq)]
 pub struct IFDEntry {
     pub tag: u16,
@@ -240,6 +240,7 @@ impl IFDEntry {
     }
 }
 
+/// A high-level representation of an Image File Directory, including long-format content.
 #[derive(Debug, Clone, PartialEq)]
 pub struct IFD {
     pub entries: Vec<IFDEntry>,

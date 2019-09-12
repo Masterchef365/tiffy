@@ -19,7 +19,7 @@ pub use ifd::*;
 /// Low-level IFD abstrations
 pub(crate) mod raw_ifd;
 
-/// Values of tags
+/// Integer values of tags
 pub mod tags;
 
 /// Byteorder

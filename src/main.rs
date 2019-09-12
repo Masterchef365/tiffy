@@ -24,8 +24,8 @@ fn main() -> Fallible<()> {
         let mut strip_lengths_out = Vec::new();
 
         for (offset, length) in strip_offsets.iter().zip(strip_lengths.iter()) {
-            let strip = reader.read_strip(*offset as u64, *length as u64)?;
-            let (offset, length) = writer.write_strip(&strip)?;
+            let strip = reader.read_raw_strip(u64::from(*offset), u64::from(*length))?;
+            let (offset, length) = writer.write_raw_strip(&strip)?;
             strip_offsets_out.push(offset as u32);
             strip_lengths_out.push(length as u32);
         }

@@ -7,6 +7,7 @@ use std::fs::File;
 use std::io::{BufReader, Seek, SeekFrom};
 use std::path::Path;
 
+/// A Mid-level TIFF reader. Wraps `<Read + Seek>` for reading IFDs and raw strips.
 pub struct TiffReader<R: ReadBytesExt + Seek> {
     is_little_endian: bool,
     ifd_table: Box<[IFD]>,
@@ -14,6 +15,7 @@ pub struct TiffReader<R: ReadBytesExt + Seek> {
 }
 
 impl TiffReader<BufReader<File>> {
+    /// Create a TiffReader at `path` with appropriate buffering
     pub fn from_path(path: impl AsRef<Path>) -> Fallible<Self> {
         Self::from_reader(BufReader::new(File::open(path)?))
     }
@@ -38,7 +40,7 @@ impl<R: ReadBytesExt + Seek> TiffReader<R> {
         })
     }
 
-    /// ReadBytesExt all of the IFDs with the specified endian
+    /// Read all of the IFDs with the specified endian
     fn read_ifd_table_endian<E: ByteOrder>(reader: &mut R) -> Fallible<Box<[IFD]>> {
         read_header_magic::<E, _>(reader)?;
         let raw_ifds = Self::read_raw_ifds::<E>(reader)?;
@@ -49,7 +51,7 @@ impl<R: ReadBytesExt + Seek> TiffReader<R> {
         Ok(ifds.into_boxed_slice())
     }
 
-    /// ReadBytesExt all IFDs from `reader` table into memory sequentially
+    /// Read all IFDs from `reader` table into memory sequentially
     fn read_raw_ifds<E: ByteOrder>(reader: &mut R) -> Fallible<Box<[RawIFD]>> {
         let mut ifds = Vec::new();
         'ifd_load: loop {
@@ -70,7 +72,8 @@ impl<R: ReadBytesExt + Seek> TiffReader<R> {
 
     //pub fn read_strip_streamed(&mut self, position: u64, length: u64) -> Item = impl Iterator<Item = u8> {}
 
-    pub fn read_strip(&mut self, position: u64, length: u64) -> Fallible<Box<[u8]>> {
+    /// Read the strip at `position`, of `length` bytes
+    pub fn read_raw_strip(&mut self, position: u64, length: u64) -> Fallible<Box<[u8]>> {
         let mut strip = vec![0; length as usize];
         self.reader.seek(SeekFrom::Start(position))?;
         self.reader.read_exact(&mut strip)?;

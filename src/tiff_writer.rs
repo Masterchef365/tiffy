@@ -1,26 +1,28 @@
 use crate::header::*;
 use crate::ifd::IFD;
-use crate::raw_ifd::*;
 use byteorder::{ByteOrder, WriteBytesExt};
 use failure::Fallible;
 use std::fs::File;
-use std::io::{BufWriter, Seek, SeekFrom, Write};
+use std::io::{BufWriter, Seek, SeekFrom};
 use std::marker::PhantomData;
 use std::path::Path;
 
-pub struct TiffWriter<E: ByteOrder, W: Write + Seek> {
+/// A Mid-level TIFF writer. Wraps `<Write + Seek>` for writing IFDs and raw strips.
+pub struct TiffWriter<E: ByteOrder, W: WriteBytesExt + Seek> {
     writer: W,
     last_ifd_pointer_position: u64,
     _phantomdata: PhantomData<E>,
 }
 
 impl<E: ByteOrder> TiffWriter<E, BufWriter<File>> {
+    /// Create a TiffWriter at `path` with appropriate buffering
     pub fn from_path(path: impl AsRef<Path>) -> Fallible<Self> {
         Self::from_writer(BufWriter::new(File::create(path)?))
     }
 }
 
-impl<E: ByteOrder, W: Write + Seek> TiffWriter<E, W> {
+impl<E: ByteOrder, W: WriteBytesExt + Seek> TiffWriter<E, W> {
+    /// Create a TiffWriter from `writer`
     pub fn from_writer(mut writer: W) -> Fallible<Self> {
         // Write the header
         write_header::<E, _>(&mut writer)?;
@@ -36,8 +38,8 @@ impl<E: ByteOrder, W: Write + Seek> TiffWriter<E, W> {
         })
     }
 
+    /// Write a single IFD (and its data) into the internal writer
     pub fn write_ifd(&mut self, ifd: &IFD) -> Fallible<()> {
-    //pub(crate) fn write_ifd(&mut self, ifd: IFD) -> Fallible<()> {
         // Write out the fields
         let raw_ifd = ifd.write_fields_to::<E, _>(&mut self.writer)?;
 
@@ -67,8 +69,8 @@ impl<E: ByteOrder, W: Write + Seek> TiffWriter<E, W> {
 
     //pub fn write_strip_stream(&mut self, strip: impl Iterator<Item = u8>) -> Fallible<u64> {}
 
-    /// Write a strip to the file, returning `(offset, len)`.
-    pub fn write_strip(&mut self, strip: &[u8]) -> Fallible<(u64, u64)> {
+    /// Write a strip to the writer, returning `(offset in writer, length in bytes)`
+    pub fn write_raw_strip(&mut self, strip: &[u8]) -> Fallible<(u64, u64)> {
         let offset = self.writer.seek(SeekFrom::Current(0))?;
         self.writer.write_all(strip)?;
         Ok((offset, strip.len() as u64))
