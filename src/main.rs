@@ -1,24 +1,36 @@
-#![allow(dead_code)]
-mod tiff_reader;
-mod constants;
-mod header;
-mod ifd;
-mod raw_ifd;
-mod tags;
-use byteorder::{BigEndian, ByteOrder, LittleEndian, ReadBytesExt, WriteBytesExt};
-use failure::Error;
-use header::*;
-use ifd::{IFDEntry, IFDEntryData, IFD};
-use raw_ifd::*;
-use std::fs::File;
-use std::io::BufReader;
+use failure::Fallible;
+use std::io::{Seek, SeekFrom};
+use tiff_concept::tags;
+use tiff_concept::{NativeEndian, TiffReader, TiffWriter};
+
+fn main() -> Fallible<()> {
+    let reader = TiffReader::from_path("/home/duncan/Downloads/test.tiff")?;
+    let mut fake_file = std::io::Cursor::new(Vec::new());
+    {
+        let mut writer = TiffWriter::<NativeEndian, _>::from_writer(&mut fake_file)?;
+        for ifd in reader.ifds() {
+            println!("{:?}", ifd);
+            writer.write_ifd(ifd)?;
+        }
+    }
+
+    fake_file.seek(SeekFrom::Start(0))?; // It's rewind time!
+
+    let reader = TiffReader::from_reader(&mut fake_file)?;
+    for ifd in reader.ifds() {
+        println!("{:?}", ifd);
+    }
+    Ok(())
+}
+
+/*
 use std::io::{Cursor, Seek, SeekFrom};
 
 fn main() -> Result<(), Error> {
-    let mut file = BufReader::new(File::open("/home/duncan/Downloads/Untitled.tiff")?);
-    println!("{:?}", read_file(&mut file)?);
-    //check_self::<BigEndian>()?;
-    //check_self::<LittleEndian>()?;
+    //let mut file = BufReader::new(File::open("/home/duncan/Downloads/Untitled.tiff")?);
+    //println!("{:?}", read_file(&mut file)?);
+    check_self::<BigEndian>()?;
+    check_self::<LittleEndian>()?;
     Ok(())
 }
 
@@ -101,3 +113,4 @@ fn read_using_endian<E: ByteOrder, R: ReadBytesExt + Seek>(
         .collect::<Result<Box<[_]>, _>>()?;
     Ok(ifd_table)
 }
+*/

@@ -11,6 +11,7 @@ enum HeaderError {
     BadMagic { magic: u16 },
 }
 
+/// Determine the endian of the file in `reader`, returns `true` if the file is little-endian
 pub fn read_header_endian<R: ReadBytesExt>(reader: &mut R) -> Result<bool, Error> {
     let mut endian_magic = [0u8; 2];
     reader.read_exact(&mut endian_magic)?;
@@ -21,8 +22,8 @@ pub fn read_header_endian<R: ReadBytesExt>(reader: &mut R) -> Result<bool, Error
     }
 }
 
-/// Check the magic number from this writer
-pub fn read_header_magic<R: ReadBytesExt, E: ByteOrder>(reader: &mut R) -> Result<(), Error> {
+/// Read and check the magic number from this writer
+pub fn read_header_magic<E: ByteOrder, R: ReadBytesExt>(reader: &mut R) -> Result<(), Error> {
     let magic = reader.read_u16::<E>()?;
     if magic != VERSION_MAGIC {
         Err(HeaderError::BadMagic { magic }.into())
