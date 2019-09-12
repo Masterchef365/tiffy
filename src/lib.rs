@@ -24,3 +24,8 @@ pub mod tags;
 
 /// Byteorder
 pub use byteorder::{LittleEndian, BigEndian, NativeEndian};
+
+/// High-level TIFF interpreter
+pub mod tiff_interpreter;
+
+pub mod interpretation;
