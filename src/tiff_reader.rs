@@ -40,6 +40,16 @@ impl<R: ReadBytesExt + Seek> TiffReader<R> {
         })
     }
 
+    /// Read the IFD table starting at the `offset` (For use with e.g. SubIFDs)
+    pub fn read_external_ifd_table(&mut self, offset: u64) -> Fallible<Box<[IFD]>> {
+        self.reader.seek(SeekFrom::Start(offset))?;
+        if self.is_little_endian {
+            Self::read_ifd_table_endian::<LittleEndian>(&mut self.reader)
+        } else {
+            Self::read_ifd_table_endian::<BigEndian>(&mut self.reader)
+        }
+    }
+
     /// Read all of the IFDs with the specified endian
     fn read_ifd_table_endian<E: ByteOrder>(reader: &mut R) -> Fallible<Box<[IFD]>> {
         read_header_magic::<E, _>(reader)?;

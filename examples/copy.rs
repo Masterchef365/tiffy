@@ -3,6 +3,7 @@ use tiff_concept::tags;
 use tiff_concept::IFDEntryData;
 use tiff_concept::{NativeEndian, TiffReader, TiffWriter};
 
+/// Rewrite (copy) an image's tags and data
 fn main() -> Fallible<()> {
     // Parse arguments
     let mut args = std::env::args();
