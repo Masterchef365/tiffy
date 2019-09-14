@@ -22,7 +22,8 @@ impl<E: ByteOrder> TiffWriter<E, BufWriter<File>> {
 }
 
 impl<E: ByteOrder, W: WriteBytesExt + Seek> TiffWriter<E, W> {
-    /// Create a TiffWriter from `writer`
+    /// Create a TiffWriter from `writer`. Note: Assumes the cursor is in a position ready for 
+    /// writing the new file.
     pub fn from_writer(mut writer: W) -> Fallible<Self> {
         // Write the header
         write_header::<E, _>(&mut writer)?;
@@ -38,7 +39,8 @@ impl<E: ByteOrder, W: WriteBytesExt + Seek> TiffWriter<E, W> {
         })
     }
 
-    /// Write a single IFD (and its data) into the internal writer
+    /// Write a single IFD (and its data) into the internal writer. Note: the cursor shall be
+    /// advanced to a position after the data and IFD, ready for another write.
     pub fn write_ifd(&mut self, ifd: &IFD) -> Fallible<()> {
         // Write out the fields
         let raw_ifd = ifd.write_fields_to::<E, _>(&mut self.writer)?;
@@ -55,6 +57,10 @@ impl<E: ByteOrder, W: WriteBytesExt + Seek> TiffWriter<E, W> {
         // Write zero to that pointer for now
         self.writer.write_u32::<E>(0)?;
 
+        // Save the position after the end of the table to restore it so this function seems to
+        // write only the table and data sequentially
+        let position_after_table = self.writer.seek(SeekFrom::Current(0))?;
+
         // Seek to the last pointer
         let _ = self.writer.seek(SeekFrom::Start(self.last_ifd_pointer_position));
 
@@ -64,12 +70,16 @@ impl<E: ByteOrder, W: WriteBytesExt + Seek> TiffWriter<E, W> {
         // Save the pointer to the 'next IFD' in our struct
         self.last_ifd_pointer_position = next_ifd_table_pointer_position;
 
+        // Return to the position after the IFD
+        let _ = self.writer.seek(SeekFrom::Start(position_after_table))?;
+
         Ok(())
     }
 
     //pub fn write_strip_stream(&mut self, strip: impl Iterator<Item = u8>) -> Fallible<u64> {}
 
-    /// Write a strip to the writer, returning `(offset in writer, length in bytes)`
+    /// Write a strip to the writer, returning `(offset in writer, length in bytes)`. Note: the cursor shall be
+    /// advanced to a position after the data and IFD, ready for another write.
     pub fn write_raw_strip(&mut self, strip: &[u8]) -> Fallible<(u64, u64)> {
         let offset = self.writer.seek(SeekFrom::Current(0))?;
         self.writer.write_all(strip)?;

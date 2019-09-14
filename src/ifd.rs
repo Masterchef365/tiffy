@@ -137,8 +137,8 @@ impl IFDEntryData {
                 reader.read_exact(&mut value_or_offset)?;
                 IFDEntryData::Unrecognized {
                     tag_type,
-                    value_or_offset,
                     count,
+                    value_or_offset,
                 }
             }
         })
@@ -170,7 +170,7 @@ impl IFDEntryData {
                     .write_u32::<E>(*a)
                     .and_then(|()| writer.write_u32::<E>(*b))
             }),
-            _ => unimplemented!(),
+            _ => unreachable!("Unrecognized tag types should be filtered before writing"),
         }
     }
 
@@ -190,7 +190,7 @@ impl IFDEntryData {
             Self::Short(data) => (IFD_TYPE_SHORT, data.len() as u32),
             Self::Long(data) => (IFD_TYPE_LONG, data.len() as u32),
             Self::Rational(data) => (IFD_TYPE_RATIONAL, data.len() as u32),
-            _ => unimplemented!(),
+            _ => unreachable!("Unrecognized tag types should be filtered before writing"),
         }
     }
 }
@@ -270,6 +270,11 @@ impl IFD {
             entries: self
                 .entries
                 .iter()
+                // Remove types we do not recognize, as it is impossible to do so correctly.
+                .filter(|entry| match entry.data {
+                    IFDEntryData::Unrecognized{ .. } => false,
+                    _ => true,
+                })
                 .map(|entry| entry.write_fields_to::<E, W>(writer))
                 .collect::<Result<Vec<RawIFDEntry>, Error>>()?,
         })

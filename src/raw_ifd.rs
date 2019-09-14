@@ -52,7 +52,10 @@ pub struct RawIFD {
 impl RawIFD {
     /// Read an entire IFD from `reader`
     pub fn from_reader<E: ByteOrder, R: ReadBytesExt>(reader: &mut R) -> Result<Self, Error> {
+        // Read length header
         let entry_count = reader.read_u16::<E>()? as usize;
+
+        // Read entries
         let mut entries = Vec::with_capacity(entry_count);
         for _ in 0..entry_count {
             entries.push(RawIFDEntry::from_reader::<E, R>(reader)?);
@@ -63,7 +66,11 @@ impl RawIFD {
     /// Write an entire IFD to `writer`
     pub fn to_writer<E: ByteOrder, W: WriteBytesExt>(&self, writer: &mut W) -> Result<(), Error> {
         assert!(self.entries.len() < std::u16::MAX as usize);
+
+        // Write length header
         writer.write_u16::<E>(self.entries.len() as u16)?;
+
+        // Write entries
         for entry in &self.entries {
             entry.to_writer::<E, W>(writer)?;
         }

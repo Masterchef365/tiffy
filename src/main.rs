@@ -4,11 +4,15 @@ use tiff_concept::IFDEntryData;
 use tiff_concept::{NativeEndian, TiffReader, TiffWriter};
 
 fn main() -> Fallible<()> {
-    let mut reader = TiffReader::from_path("/home/duncan/Downloads/test.tiff")?;
+    let mut reader = TiffReader::from_path("/home/duncan/Downloads/Untitled.tiff")?;
     let mut writer = TiffWriter::<NativeEndian, _>::from_path("/home/duncan/wat.tiff")?;
     let ifds = reader.ifds().cloned().collect::<Vec<_>>();
 
     for ifd in ifds {
+        for entry in &ifd.entries {
+            println!("{:?}", entry);
+        }
+        println!();
         let (strip_offsets, strip_lengths) = match (
             ifd.get_tag(tags::STRIP_OFFSETS),
             ifd.get_tag(tags::STRIP_BYTE_COUNTS),
