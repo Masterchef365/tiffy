@@ -38,7 +38,7 @@ fn iterate_null_terminated_ascii_as_utf8(bytes: &[u8]) -> impl Iterator<Item = &
     bytes
         .split(|x| *x == b'\0')
         .filter(|x| !x.is_empty())
-        .map(|x| std::str::from_utf8(x).unwrap())
+        .map(|x| std::str::from_utf8(x).unwrap()) //TODO: Handle non-Utf8 strings
 }
 
 /// IFD Entry Data, essentially a dynamic type representing TIFF's array fields.
@@ -155,7 +155,7 @@ impl IFDEntryData {
             Self::Ascii(strings) => {
                 for string in strings.iter() {
                     writer.write_all(string.as_bytes())?;
-                    writer.write_all(&[0])?;
+                    writer.write_all(&[b'\0'])?;
                 }
                 Ok(())
             }
