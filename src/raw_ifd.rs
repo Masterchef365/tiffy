@@ -1,15 +1,21 @@
-/// Raw IFDs are the disk-stored versions of their counterparts -
-/// they usually only contain the data necessary to point to other sources of data.
 use byteorder::{ByteOrder, ReadBytesExt, WriteBytesExt};
 use failure::Error;
 use std::io::{Seek, SeekFrom};
 
-/// A struct representing a disk-stored IFD value.
+/// A struct representing a low-level IFD value.
 #[derive(Debug, Clone, Copy)]
 pub struct RawIFDEntry {
+    /// Tag ID.
     pub tag: u16,
+
+    /// Tag data type.
     pub tag_type: u16,
+
+    /// Quantity (not byte count) of data in the field.
     pub count: u32,
+
+    /// Field representing either the value of the tag (if it is small enough)
+    /// or the file offset of the tag's data.
     pub value_or_offset: [u8; 4],
 }
 
@@ -43,14 +49,14 @@ impl RawIFDEntry {
     }
 }
 
-/// A struct representing a disk-stored IFD.
+/// A struct representing a low-level IFD.
 #[derive(Debug, Clone)]
 pub struct RawIFD {
     pub entries: Vec<RawIFDEntry>,
 }
 
 impl RawIFD {
-    /// Read an entire IFD from `reader`
+    /// Read an entire IFD from `reader` excluding the offset to the next IFD.
     pub fn from_reader<E: ByteOrder, R: ReadBytesExt>(reader: &mut R) -> Result<Self, Error> {
         // Read length header
         let entry_count = reader.read_u16::<E>()? as usize;
@@ -63,7 +69,7 @@ impl RawIFD {
         Ok(Self { entries })
     }
 
-    /// Write an entire IFD to `writer`
+    /// Write an entire IFD to `writer` excluding the offset to the next IFD.
     pub fn to_writer<E: ByteOrder, W: WriteBytesExt>(&self, writer: &mut W) -> Result<(), Error> {
         assert!(self.entries.len() < std::u16::MAX as usize);
 
