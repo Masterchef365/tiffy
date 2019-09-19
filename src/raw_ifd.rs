@@ -1,6 +1,5 @@
 use byteorder::{ByteOrder, ReadBytesExt, WriteBytesExt};
-use failure::Error;
-use std::io::{Seek, SeekFrom};
+use std::io::Error;
 
 /// A struct representing a low-level IFD value.
 #[derive(Debug, Clone, Copy)]
@@ -23,7 +22,7 @@ impl RawIFDEntry {
     /// Read the entry value from `reader`.
     pub fn from_reader<E: ByteOrder, R: ReadBytesExt>(
         reader: &mut R,
-    ) -> Result<Self, std::io::Error> {
+    ) -> Result<Self, Error> {
         Ok(Self {
             tag: reader.read_u16::<E>()?,
             tag_type: reader.read_u16::<E>()?,

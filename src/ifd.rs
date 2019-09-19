@@ -1,9 +1,7 @@
 use crate::constants::ifd_entry_type_magic::*;
 use crate::raw_ifd::{RawIFD, RawIFDEntry};
 use byteorder::{ByteOrder, ReadBytesExt, WriteBytesExt};
-use failure::Error;
-use std::io::Cursor;
-use std::io::{Seek, SeekFrom};
+use std::io::{self, Cursor, Seek, SeekFrom};
 
 /// Decide whether or not the specified count of this tag type exceeds the 4-byte
 /// 'value_or_offset' field within the IFD tag entry.
@@ -69,7 +67,7 @@ impl IFDEntryData {
     pub(crate) fn read_fields_from<E: ByteOrder, R: ReadBytesExt + Seek>(
         reader: &mut R,
         entry: &RawIFDEntry,
-    ) -> Result<Self, Error> {
+    ) -> Result<Self, io::Error> {
         if tag_exceeds_ifd_field(entry.tag_type, entry.count) {
             let tag_data_offset = entry.value_or_offset.as_ref().read_u32::<E>()?;
             reader.seek(SeekFrom::Start(tag_data_offset.into()))?;
@@ -88,7 +86,7 @@ impl IFDEntryData {
         reader: &mut R,
         tag_type: u16,
         count: usize,
-    ) -> Result<Self, Error> {
+    ) -> Result<Self, io::Error> {
         Ok(match tag_type {
             IFD_TYPE_BYTE => {
                 let mut buffer = vec![0; count];
@@ -148,7 +146,7 @@ impl IFDEntryData {
     pub(crate) fn write_fields_into<E: ByteOrder, W: WriteBytesExt + Seek>(
         &self,
         writer: &mut W,
-    ) -> Result<(), std::io::Error> {
+    ) -> Result<(), io::Error> {
         match self {
             Self::Undefined(bytes) => writer.write_all(&bytes),
             Self::Byte(bytes) => writer.write_all(&bytes),
@@ -207,7 +205,7 @@ impl IFDEntry {
     pub(crate) fn read_fields_from<E: ByteOrder, R: ReadBytesExt + Seek>(
         reader: &mut R,
         entry: &RawIFDEntry,
-    ) -> Result<Self, Error> {
+    ) -> Result<Self, io::Error> {
         Ok(Self {
             tag: entry.tag,
             data: IFDEntryData::read_fields_from::<E, R>(reader, entry)?,
@@ -218,7 +216,7 @@ impl IFDEntry {
     pub(crate) fn write_fields_to<E: ByteOrder, W: WriteBytesExt + Seek>(
         &self,
         writer: &mut W,
-    ) -> Result<RawIFDEntry, Error> {
+    ) -> Result<RawIFDEntry, io::Error> {
         let mut value_or_offset = [0u8; 4];
         let mut cursor = Cursor::new(&mut value_or_offset[..]);
 
@@ -251,13 +249,13 @@ impl IFD {
     pub(crate) fn read_fields_from<E: ByteOrder, R: ReadBytesExt + Seek>(
         reader: &mut R,
         raw_ifd: &RawIFD,
-    ) -> Result<Self, Error> {
+    ) -> Result<Self, io::Error> {
         Ok(Self {
             entries: raw_ifd
                 .entries
                 .iter()
                 .map(|entry| IFDEntry::read_fields_from::<E, R>(reader, entry))
-                .collect::<Result<Vec<IFDEntry>, Error>>()?,
+                .collect::<Result<Vec<IFDEntry>, io::Error>>()?,
         })
     }
 
@@ -265,18 +263,18 @@ impl IFD {
     pub(crate) fn write_fields_to<E: ByteOrder, W: WriteBytesExt + Seek>(
         &self,
         writer: &mut W,
-    ) -> Result<RawIFD, Error> {
+    ) -> Result<RawIFD, io::Error> {
         Ok(RawIFD {
             entries: self
                 .entries
                 .iter()
-                // Remove types we do not recognize, as it is impossible to do so correctly.
+                // Do not write tag types we do not recognize, as it is impossible to do so correctly.
                 .filter(|entry| match entry.data {
                     IFDEntryData::Unrecognized{ .. } => false,
                     _ => true,
                 })
                 .map(|entry| entry.write_fields_to::<E, W>(writer))
-                .collect::<Result<Vec<RawIFDEntry>, Error>>()?,
+                .collect::<Result<Vec<RawIFDEntry>, io::Error>>()?,
         })
     }
 

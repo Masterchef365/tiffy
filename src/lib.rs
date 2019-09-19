@@ -7,7 +7,7 @@ pub(crate) mod tiff_writer;
 pub use tiff_writer::*;
 
 /// Non-tag magic numbers
-pub(crate) mod constants;
+pub mod constants;
 
 /// Header reading/writing
 pub(crate) mod header;
