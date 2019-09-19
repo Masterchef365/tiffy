@@ -1,39 +1,28 @@
-use crate::header::*;
+use crate::header::write_header;
 use crate::ifd::IFD;
 use byteorder::{ByteOrder, WriteBytesExt};
 use failure::Fallible;
-use std::fs::File;
-use std::io::{BufWriter, Seek, SeekFrom};
+use std::io::{Seek, SeekFrom};
 use std::marker::PhantomData;
-use std::path::Path;
 
 /// A Mid-level TIFF writer. Wraps `<Write + Seek>` for writing IFDs and raw strips.
-pub struct TiffWriter<E: ByteOrder, W: WriteBytesExt + Seek> {
-    writer: W,
+pub struct TiffWriter<E: ByteOrder> {
     last_ifd_pointer_position: u64,
     _phantomdata: PhantomData<E>,
 }
 
-impl<E: ByteOrder> TiffWriter<E, BufWriter<File>> {
-    /// Create a TiffWriter at `path` with appropriate buffering
-    pub fn from_path(path: impl AsRef<Path>) -> Fallible<Self> {
-        Self::from_writer(BufWriter::new(File::create(path)?))
-    }
-}
-
-impl<E: ByteOrder, W: WriteBytesExt + Seek> TiffWriter<E, W> {
+impl<E: ByteOrder> TiffWriter<E> {
     /// Create a TiffWriter from `writer`. Note: Assumes the cursor is in a position ready for 
     /// writing the new file.
-    pub fn from_writer(mut writer: W) -> Fallible<Self> {
+    pub fn new_header<W: WriteBytesExt + Seek>(writer: &mut W) -> Fallible<Self> {
         // Write the header
-        write_header::<E, _>(&mut writer)?;
+        write_header::<E, _>(writer)?;
 
         // Write zero for the first IFD pointer, and remember where you were
         let last_ifd_pointer_position = writer.seek(SeekFrom::Current(0))?;
         writer.write_u32::<E>(0)?;
 
         Ok(Self {
-            writer,
             last_ifd_pointer_position,
             _phantomdata: PhantomData,
         })
@@ -41,48 +30,38 @@ impl<E: ByteOrder, W: WriteBytesExt + Seek> TiffWriter<E, W> {
 
     /// Write a single IFD (and its data) into the internal writer. Note: the cursor shall be
     /// advanced to a position after the data and IFD, ready for another write.
-    pub fn write_ifd(&mut self, ifd: &IFD) -> Fallible<()> {
+    pub fn write_ifd<W: WriteBytesExt + Seek>(&mut self, ifd: &IFD, writer: &mut W) -> Fallible<()> {
         // Write out the fields
-        let raw_ifd = ifd.write_fields_to::<E, _>(&mut self.writer)?;
+        let raw_ifd = ifd.write_fields_to::<E, _>(writer)?;
 
         // Save the current cursor position as it will become the pointer to the next IFD
-        let ifd_table_position = self.writer.seek(SeekFrom::Current(0))?;
+        let ifd_table_position = writer.seek(SeekFrom::Current(0))?;
 
         // Write the IFD into the file
-        raw_ifd.to_writer::<E, _>(&mut self.writer)?;
+        raw_ifd.to_writer::<E, _>(writer)?;
 
         // Create a pointer to the 'next IFD' pointer
-        let next_ifd_table_pointer_position = self.writer.seek(SeekFrom::Current(0))?;
+        let next_ifd_table_pointer_position = writer.seek(SeekFrom::Current(0))?;
 
         // Write zero to that pointer for now
-        self.writer.write_u32::<E>(0)?;
+        writer.write_u32::<E>(0)?;
 
         // Save the position after the end of the table to restore it so this function seems to
         // write only the table and data sequentially
-        let position_after_table = self.writer.seek(SeekFrom::Current(0))?;
+        let position_after_table = writer.seek(SeekFrom::Current(0))?;
 
         // Seek to the last pointer
-        let _ = self.writer.seek(SeekFrom::Start(self.last_ifd_pointer_position));
+        let _ = writer.seek(SeekFrom::Start(self.last_ifd_pointer_position));
 
         // Write the position of the IFD we just wrote to it
-        self.writer.write_u32::<E>(ifd_table_position as u32)?;
+        writer.write_u32::<E>(ifd_table_position as u32)?;
         
         // Save the pointer to the 'next IFD' in our struct
         self.last_ifd_pointer_position = next_ifd_table_pointer_position;
 
         // Return to the position after the IFD
-        let _ = self.writer.seek(SeekFrom::Start(position_after_table))?;
+        let _ = writer.seek(SeekFrom::Start(position_after_table))?;
 
         Ok(())
-    }
-
-    //pub fn write_strip_stream(&mut self, strip: impl Iterator<Item = u8>) -> Fallible<u64> {}
-
-    /// Write a strip to the writer, returning `(offset in writer, length in bytes)`. Note: the cursor shall be
-    /// advanced to a position after the data and IFD, ready for another write.
-    pub fn write_raw_strip(&mut self, strip: &[u8]) -> Fallible<(u64, u64)> {
-        let offset = self.writer.seek(SeekFrom::Current(0))?;
-        self.writer.write_all(strip)?;
-        Ok((offset, strip.len() as u64))
     }
 }

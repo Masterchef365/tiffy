@@ -1,4 +1,4 @@
-use crate::header::*;
+use crate::header::{read_header_endian, read_header_magic};
 use crate::ifd::IFD;
 use crate::raw_ifd::*;
 use byteorder::{BigEndian, ByteOrder, LittleEndian, ReadBytesExt};
@@ -8,52 +8,43 @@ use std::io::{BufReader, Seek, SeekFrom};
 use std::path::Path;
 
 /// A Mid-level TIFF reader. Wraps `<Read + Seek>` for reading IFDs and raw strips.
-pub struct TiffReader<R: ReadBytesExt + Seek> {
+pub struct TiffReader {
     is_little_endian: bool,
     ifd_table: Box<[IFD]>,
-    reader: R,
 }
 
-impl TiffReader<BufReader<File>> {
-    /// Create a TiffReader at `path` with appropriate buffering
-    pub fn from_path(path: impl AsRef<Path>) -> Fallible<Self> {
-        Self::from_reader(BufReader::new(File::open(path)?))
-    }
-}
-
-impl<R: ReadBytesExt + Seek> TiffReader<R> {
+impl TiffReader {
     /// Create a new TiffReader from `reader`
-    pub fn from_reader(mut reader: R) -> Fallible<Self> {
+    pub fn from_reader<R: ReadBytesExt + Seek>(reader: &mut R) -> Fallible<Self> {
         // Write headers
-        let is_little_endian = read_header_endian(&mut reader)?;
+        let is_little_endian = read_header_endian(reader)?;
 
         let ifd_table = if is_little_endian {
-            Self::read_ifd_table_endian::<LittleEndian>(&mut reader)?
+            Self::read_ifd_table_endian::<LittleEndian, R>(reader)?
         } else {
-            Self::read_ifd_table_endian::<BigEndian>(&mut reader)?
+            Self::read_ifd_table_endian::<BigEndian, R>(reader)?
         };
 
         Ok(Self {
             is_little_endian,
             ifd_table,
-            reader,
         })
     }
 
     /// Read the IFD table starting at the `offset` (For use with e.g. SubIFDs)
-    pub fn read_external_ifd_table(&mut self, offset: u64) -> Fallible<Box<[IFD]>> {
-        self.reader.seek(SeekFrom::Start(offset))?;
+    pub fn read_external_ifd_table<R: ReadBytesExt + Seek>(&mut self, offset: u64, reader: &mut R) -> Fallible<Box<[IFD]>> {
+        reader.seek(SeekFrom::Start(offset))?;
         if self.is_little_endian {
-            Self::read_ifd_table_endian::<LittleEndian>(&mut self.reader)
+            Self::read_ifd_table_endian::<LittleEndian, R>(reader)
         } else {
-            Self::read_ifd_table_endian::<BigEndian>(&mut self.reader)
+            Self::read_ifd_table_endian::<BigEndian, R>(reader)
         }
     }
 
     /// Read all of the IFDs with the specified endian
-    fn read_ifd_table_endian<E: ByteOrder>(reader: &mut R) -> Fallible<Box<[IFD]>> {
+    fn read_ifd_table_endian<E: ByteOrder, R: ReadBytesExt + Seek>(reader: &mut R) -> Fallible<Box<[IFD]>> {
         read_header_magic::<E, _>(reader)?;
-        let raw_ifds = Self::read_raw_ifds::<E>(reader)?;
+        let raw_ifds = Self::read_raw_ifds::<E, R>(reader)?;
         let mut ifds = Vec::with_capacity(raw_ifds.len());
         for raw_ifd in raw_ifds.iter() {
             ifds.push(IFD::read_fields_from::<E, _>(reader, &raw_ifd)?);
@@ -62,7 +53,7 @@ impl<R: ReadBytesExt + Seek> TiffReader<R> {
     }
 
     /// Read all IFDs from `reader` table into memory sequentially
-    fn read_raw_ifds<E: ByteOrder>(reader: &mut R) -> Fallible<Box<[RawIFD]>> {
+    fn read_raw_ifds<E: ByteOrder, R: ReadBytesExt + Seek>(reader: &mut R) -> Fallible<Box<[RawIFD]>> {
         let mut ifds = Vec::new();
         'ifd_load: loop {
             let next_ifd_offset = reader.read_u32::<E>()?;
@@ -78,16 +69,6 @@ impl<R: ReadBytesExt + Seek> TiffReader<R> {
     /// Returns true if the file is in little-endian byte order
     pub fn is_little_endian(&self) -> bool {
         self.is_little_endian
-    }
-
-    //pub fn read_strip_streamed(&mut self, position: u64, length: u64) -> Item = impl Iterator<Item = u8> {}
-
-    /// Read the strip at `position`, of `length` bytes
-    pub fn read_raw_strip(&mut self, position: u64, length: u64) -> Fallible<Box<[u8]>> {
-        let mut strip = vec![0; length as usize];
-        self.reader.seek(SeekFrom::Start(position))?;
-        self.reader.read_exact(&mut strip)?;
-        Ok(strip.into_boxed_slice())
     }
 
     /// Returns an iterator over references to this file's IFDs
