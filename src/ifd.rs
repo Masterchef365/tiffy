@@ -240,7 +240,7 @@ impl IFDField {
 }
 
 /// A high-level representation of an Image File Directory.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, Default, PartialEq)]
 pub struct IFD {
     pub entries: Vec<IFDField>,
 }
