@@ -5,17 +5,17 @@ use failure::Fallible;
 use std::io::{Seek, SeekFrom};
 use std::marker::PhantomData;
 
-/// A Mid-level TIFF writer. Wraps `<Write + Seek>` for writing IFDs and raw strips.
-pub struct IFDWriter<E: ByteOrder> {
+/// A TIFF metadata (header/IFD) writer.
+pub struct MetadataWriter<E: ByteOrder> {
     /// File position of the last written IFD pointer
     last_ifd_pointer_position: u64,
     _phantomdata: PhantomData<E>,
 }
 
-impl<E: ByteOrder> IFDWriter<E> {
-    /// Create a IFDWriter from `writer`. Note: Assumes the cursor is in a position ready for 
+impl<E: ByteOrder> MetadataWriter<E> {
+    /// Create a MetadataWriter from `writer`. Note: Assumes the cursor is in a position ready for 
     /// writing the new file.
-    pub fn new_header<W: WriteBytesExt + Seek>(writer: &mut W) -> Fallible<Self> {
+    pub fn write_header<W: WriteBytesExt + Seek>(writer: &mut W) -> Fallible<Self> {
         // Write the header
         write_header::<E, _>(writer)?;
 
@@ -30,8 +30,9 @@ impl<E: ByteOrder> IFDWriter<E> {
     }
 
     /// Write a single IFD (and its data) into the internal writer. Note: the cursor shall be
-    /// advanced to a position after the data and IFD, ready for another write.
-    pub fn write_ifd<W: WriteBytesExt + Seek>(&mut self, ifd: &IFD, writer: &mut W) -> Fallible<()> {
+    /// advanced to a position after the data and IFD, ready for another write. Returns the
+    /// position within the file of the beginning of the IFD just written.
+    pub fn write_ifd<W: WriteBytesExt + Seek>(&mut self, ifd: &IFD, writer: &mut W) -> Fallible<u64> {
         // Write out the fields
         let raw_ifd = ifd.write_fields_to::<E, _>(writer)?;
 
@@ -63,6 +64,6 @@ impl<E: ByteOrder> IFDWriter<E> {
         // Return to the position after the IFD
         let _ = writer.seek(SeekFrom::Start(position_after_table))?;
 
-        Ok(())
+        Ok(ifd_table_position)
     }
 }

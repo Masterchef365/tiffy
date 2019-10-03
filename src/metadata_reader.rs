@@ -5,15 +5,17 @@ use byteorder::{BigEndian, ByteOrder, LittleEndian, ReadBytesExt};
 use failure::Fallible;
 use std::io::{Seek, SeekFrom};
 
-/// A Mid-level TIFF reader. Wraps `<Read + Seek>` for reading IFDs and raw strips.
-pub struct IFDReader {
+/// A TIFF metadata (header/IFD) reader.
+pub struct MetadataReader {
+    /// Whether the file is in little endian byte order.
     is_little_endian: bool,
+    /// Table of IFDs read.
     ifd_table: Box<[IFD]>,
 }
 
-impl IFDReader {
-    /// Create a new IFDReader from `reader`
-    pub fn from_reader<R: ReadBytesExt + Seek>(reader: &mut R) -> Fallible<Self> {
+impl MetadataReader {
+    /// Create a new MetadataReader from `reader`, reading the entire IFD table from the file.
+    pub fn read_header<R: ReadBytesExt + Seek>(reader: &mut R) -> Fallible<Self> {
         let is_little_endian = read_header_endian(reader)?;
 
         let ifd_table = if is_little_endian {
@@ -28,7 +30,7 @@ impl IFDReader {
         })
     }
 
-    /// Read the IFD table starting at the `offset` (For use SubIFDs for example)
+    /// Read the IFD table starting at the `offset` (For use SubIFDs for example).
     pub fn read_external_ifd_table<R: ReadBytesExt + Seek>(&mut self, offset: u64, reader: &mut R) -> Fallible<Box<[IFD]>> {
         reader.seek(SeekFrom::Start(offset))?;
         if self.is_little_endian {
@@ -38,7 +40,7 @@ impl IFDReader {
         }
     }
 
-    /// Read all of the IFDs with the specified endian
+    /// Read all of the IFDs with the specified endian.
     fn read_ifd_table_endian<E: ByteOrder, R: ReadBytesExt + Seek>(reader: &mut R) -> Fallible<Box<[IFD]>> {
         read_header_magic::<E, _>(reader)?;
         let raw_ifds = Self::read_raw_ifds::<E, R>(reader)?;
@@ -49,13 +51,14 @@ impl IFDReader {
         Ok(ifds.into_boxed_slice())
     }
 
-    /// Read all IFDs from `reader` table into memory sequentially
+    /// Read all IFDs from `reader` table into memory sequentially. Assumes the cursor is
+    /// positioned at a 32-bit pointer to the first valid IFD.
     fn read_raw_ifds<E: ByteOrder, R: ReadBytesExt + Seek>(reader: &mut R) -> Fallible<Box<[RawIFD]>> {
         let mut ifds = Vec::new();
-        'ifd_load: loop {
+        loop {
             let next_ifd_offset = reader.read_u32::<E>()?;
             if next_ifd_offset == 0 {
-                break 'ifd_load;
+                break;
             }
             reader.seek(SeekFrom::Start(next_ifd_offset.into()))?;
             ifds.push(RawIFD::from_reader::<E, R>(reader)?);
@@ -63,12 +66,12 @@ impl IFDReader {
         Ok(ifds.into_boxed_slice())
     }
 
-    /// Returns true if the file is in little-endian byte order
+    /// Returns true if the file is in little-endian byte order.
     pub fn is_little_endian(&self) -> bool {
         self.is_little_endian
     }
 
-    /// Returns an iterator over references to this file's IFDs
+    /// Returns an iterator over references to this file's IFDs in the order they were read.
     pub fn ifds(&self) -> impl Iterator<Item = &IFD> {
         self.ifd_table.iter()
     }

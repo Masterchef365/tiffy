@@ -1,8 +1,8 @@
 use failure::{format_err, Fallible};
 use std::fs::File;
-use std::io::{BufReader, BufWriter, Read, Write, Seek, SeekFrom};
+use std::io::{BufReader, BufWriter, Read, Seek, SeekFrom};
 use tiffy::{
-    tags, IFDFieldData, {IFDReader, IFDWriter, NativeEndian},
+    tags, IFDFieldData, {MetadataReader, MetadataWriter, NativeEndian},
 };
 
 /// Rewrite (copy) an image's tags and data
@@ -21,12 +21,10 @@ fn main() -> Fallible<()> {
     // Create ifd_reader and ifd_writer
     let mut source_file = BufReader::new(File::open(source_path)?);
     let mut dest_file = BufWriter::new(File::create(dest_path)?);
-    let ifd_reader = IFDReader::from_reader(&mut source_file)?;
-    let mut ifd_writer = IFDWriter::<NativeEndian>::new_header(&mut dest_file)?;
+    let ifd_reader = MetadataReader::read_header(&mut source_file)?;
+    let mut ifd_writer = MetadataWriter::<NativeEndian>::write_header(&mut dest_file)?;
 
-    let ifds = ifd_reader.ifds().cloned().collect::<Vec<_>>();
-
-    for mut ifd in ifds {
+    for ifd in ifd_reader.ifds() {
         // Gather strip offsets and byte counts from the source image
         let (strip_offsets, strip_lengths) = match (
             ifd.get_tag(tags::STRIP_OFFSETS),
@@ -55,17 +53,18 @@ fn main() -> Fallible<()> {
             strip_lengths_out.push(*length);
         }
 
+        let mut new_ifd = ifd.clone();
+
         // Set the strip offsets and lengths on the output image (they are different from the original)
-        *ifd.get_tag_mut(tags::STRIP_OFFSETS).unwrap() =
+        *new_ifd.get_tag_mut(tags::STRIP_OFFSETS).unwrap() =
             IFDFieldData::Long(strip_offsets_out.into_boxed_slice());
 
-        *ifd.get_tag_mut(tags::STRIP_BYTE_COUNTS).unwrap() =
+        *new_ifd.get_tag_mut(tags::STRIP_BYTE_COUNTS).unwrap() =
             IFDFieldData::Long(strip_lengths_out.into_boxed_slice());
 
         // Write the modified IFD to output image
-        ifd_writer.write_ifd(&ifd, &mut dest_file)?;
+        ifd_writer.write_ifd(&new_ifd, &mut dest_file)?;
     }
-    dest_file.flush()?;
 
     Ok(())
 }

@@ -32,7 +32,7 @@ fn tag_exceeds_ifd_field(tag_type: u16, count: u32) -> bool {
     }
 }
 
-/// Convert a TIFF Ascii sequence to string slices
+/// Convert a TIFF Ascii sequence to string slices.
 fn iterate_null_terminated_ascii_as_utf8(bytes: &[u8]) -> impl Iterator<Item = &str> {
     bytes
         .split(|x| *x == b'\0')
@@ -55,7 +55,7 @@ pub enum IFDFieldData {
     SRational(Box<[(i32, i32)]>),
     Double(Box<[f64]>),
     Float(Box<[f32]>), */
-    /// The `type` field of the tag was unrecognized when reading
+    /// The `type` field of the tag was unrecognized when reading.
     Unrecognized {
         tag_type: u16,
         count: usize,
@@ -64,8 +64,8 @@ pub enum IFDFieldData {
 }
 
 impl IFDFieldData {
-    /// Read the content from `reader` into this IFDFieldData, dereferencing offset pointers from `field`
-    pub(crate) fn read_fields_from<E: ByteOrder, R: ReadBytesExt + Seek>(
+    /// Read the content from `reader` into this IFDFieldData, dereferencing offset pointers from `field`.
+    pub fn read_fields_from<E: ByteOrder, R: ReadBytesExt + Seek>(
         reader: &mut R,
         field: &RawIFDField,
     ) -> Result<Self, io::Error> {
@@ -143,8 +143,8 @@ impl IFDFieldData {
         })
     }
 
-    /// Dump the data from this field into `writer`
-    pub(crate) fn write_fields_into<E: ByteOrder, W: WriteBytesExt + Seek>(
+    /// Dump the data from this field into `writer`.
+    pub fn write_fields_into<E: ByteOrder, W: WriteBytesExt + Seek>(
         &self,
         writer: &mut W,
     ) -> Result<(), io::Error> {
@@ -173,8 +173,8 @@ impl IFDFieldData {
         }
     }
 
-    /// Get the `type` of data in this field, and the value of the `count` field
-    pub(crate) fn get_type_and_count(&self) -> (u16, u32) {
+    /// Get the `type` of data in this field, and the value of the `count` field.
+    pub fn get_type_and_count(&self) -> (u16, u32) {
         match self {
             Self::Undefined(data) => (IFD_TYPE_UNDEFINED, data.len() as u32),
             Self::Byte(data) => (IFD_TYPE_BYTE, data.len() as u32),
@@ -194,7 +194,7 @@ impl IFDFieldData {
     }
 }
 
-/// A single field (tag, field) in an IFD
+/// An IFD field.
 #[derive(Debug, Clone, PartialEq)]
 pub struct IFDField {
     pub tag: u16,
@@ -202,8 +202,8 @@ pub struct IFDField {
 }
 
 impl IFDField {
-    /// Read the data from this raw field, dereferencing offsets/pointers through `reader`
-    pub(crate) fn read_fields_from<E: ByteOrder, R: ReadBytesExt + Seek>(
+    /// Read the data from this raw field, dereferencing offsets/pointers through `reader`.
+    pub fn read_fields_from<E: ByteOrder, R: ReadBytesExt + Seek>(
         reader: &mut R,
         field: &RawIFDField,
     ) -> Result<Self, io::Error> {
@@ -213,8 +213,8 @@ impl IFDField {
         })
     }
 
-    /// Convert this field into a raw one, writing long data to `writer`
-    pub(crate) fn write_fields_to<E: ByteOrder, W: WriteBytesExt + Seek>(
+    /// Convert this field into a raw one, writing long data to `writer`.
+    pub fn write_fields_to<E: ByteOrder, W: WriteBytesExt + Seek>(
         &self,
         writer: &mut W,
     ) -> Result<RawIFDField, io::Error> {
@@ -239,15 +239,15 @@ impl IFDField {
     }
 }
 
-/// A high-level representation of an Image File Directory, including long-format content.
+/// A high-level representation of an Image File Directory.
 #[derive(Debug, Clone, PartialEq)]
 pub struct IFD {
     pub entries: Vec<IFDField>,
 }
 
 impl IFD {
-    /// Read the fields from `reader` into memory, (de)referencing information from `raw_ifd`
-    pub(crate) fn read_fields_from<E: ByteOrder, R: ReadBytesExt + Seek>(
+    /// Read the fields from `reader` into memory, (de)referencing information from `raw_ifd`.
+    pub fn read_fields_from<E: ByteOrder, R: ReadBytesExt + Seek>(
         reader: &mut R,
         raw_ifd: &RawIFD,
     ) -> Result<Self, io::Error> {
@@ -260,8 +260,8 @@ impl IFD {
         })
     }
 
-    /// Write the fields into `writer`, returning a RawIFD table describing their locations
-    pub(crate) fn write_fields_to<E: ByteOrder, W: WriteBytesExt + Seek>(
+    /// Write the fields into `writer`, returning a RawIFD describing their locations.
+    pub fn write_fields_to<E: ByteOrder, W: WriteBytesExt + Seek>(
         &self,
         writer: &mut W,
     ) -> Result<RawIFD, io::Error> {
