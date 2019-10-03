@@ -11,6 +11,7 @@ pub mod constants;
 
 /// Header reading/writing
 pub(crate) mod header;
+pub use header::*;
 
 /// High-level IFD abstrations
 pub(crate) mod ifd;

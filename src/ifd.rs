@@ -65,7 +65,7 @@ pub enum IFDFieldData {
 
 impl IFDFieldData {
     /// Read the content from `reader` into this IFDFieldData, dereferencing offset pointers from `field`.
-    pub fn read_fields_from<E: ByteOrder, R: ReadBytesExt + Seek>(
+    pub fn read_from<E: ByteOrder, R: ReadBytesExt + Seek>(
         reader: &mut R,
         field: &RawIFDField,
     ) -> Result<Self, io::Error> {
@@ -203,18 +203,18 @@ pub struct IFDField {
 
 impl IFDField {
     /// Read the data from this raw field, dereferencing offsets/pointers through `reader`.
-    pub fn read_fields_from<E: ByteOrder, R: ReadBytesExt + Seek>(
+    pub fn read_from<E: ByteOrder, R: ReadBytesExt + Seek>(
         reader: &mut R,
         field: &RawIFDField,
     ) -> Result<Self, io::Error> {
         Ok(Self {
             tag: field.tag,
-            data: IFDFieldData::read_fields_from::<E, R>(reader, field)?,
+            data: IFDFieldData::read_from::<E, R>(reader, field)?,
         })
     }
 
     /// Convert this field into a raw one, writing long data to `writer`.
-    pub fn write_fields_to<E: ByteOrder, W: WriteBytesExt + Seek>(
+    pub fn write_to<E: ByteOrder, W: WriteBytesExt + Seek>(
         &self,
         writer: &mut W,
     ) -> Result<RawIFDField, io::Error> {
@@ -246,8 +246,15 @@ pub struct IFD {
 }
 
 impl IFD {
+    /// Create an empty IFD.
+    pub fn new() -> Self {
+        Self {
+            entries: Vec::new()
+        }
+    }
+
     /// Read the fields from `reader` into memory, (de)referencing information from `raw_ifd`.
-    pub fn read_fields_from<E: ByteOrder, R: ReadBytesExt + Seek>(
+    pub fn read_from<E: ByteOrder, R: ReadBytesExt + Seek>(
         reader: &mut R,
         raw_ifd: &RawIFD,
     ) -> Result<Self, io::Error> {
@@ -255,13 +262,13 @@ impl IFD {
             entries: raw_ifd
                 .entries
                 .iter()
-                .map(|field| IFDField::read_fields_from::<E, R>(reader, field))
+                .map(|field| IFDField::read_from::<E, R>(reader, field))
                 .collect::<Result<Vec<IFDField>, io::Error>>()?,
         })
     }
 
-    /// Write the fields into `writer`, returning a RawIFD describing their locations.
-    pub fn write_fields_to<E: ByteOrder, W: WriteBytesExt + Seek>(
+    /// Write the fields into `writer`, returning a RawIFD describing their locations or data.
+    pub fn write_to<E: ByteOrder, W: WriteBytesExt + Seek>(
         &self,
         writer: &mut W,
     ) -> Result<RawIFD, io::Error> {
@@ -271,12 +278,16 @@ impl IFD {
                 .iter()
                 // Do not write tag types we do not recognize, as it is impossible to do so correctly.
                 .filter(|field| match field.data {
-                    IFDFieldData::Unrecognized{ .. } => false,
+                    IFDFieldData::Unrecognized { .. } => false,
                     _ => true,
                 })
-                .map(|field| field.write_fields_to::<E, W>(writer))
+                .map(|field| field.write_to::<E, W>(writer))
                 .collect::<Result<Vec<RawIFDField>, io::Error>>()?,
         })
+    }
+
+    pub fn add_tag(&mut self, tag: u16, data: IFDFieldData) {
+        self.entries.push(IFDField { tag, data });
     }
 
     pub fn get_tag(&self, tag: u16) -> Option<&IFDFieldData> {

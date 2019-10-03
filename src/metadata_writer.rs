@@ -34,7 +34,7 @@ impl<E: ByteOrder> MetadataWriter<E> {
     /// position within the file of the beginning of the IFD just written.
     pub fn write_ifd<W: WriteBytesExt + Seek>(&mut self, ifd: &IFD, writer: &mut W) -> Fallible<u64> {
         // Write out the fields
-        let raw_ifd = ifd.write_fields_to::<E, _>(writer)?;
+        let raw_ifd = ifd.write_to::<E, _>(writer)?;
 
         // Save the current cursor position as it will become the pointer to the next IFD
         let ifd_table_position = writer.seek(SeekFrom::Current(0))?;
