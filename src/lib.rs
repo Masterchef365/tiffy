@@ -25,5 +25,9 @@ pub use raw_ifd::*;
 /// Integer values of tags
 pub mod tags;
 
+pub(crate) mod decoding_type;
+pub use decoding_type::DecodingType;
+
 /// Byteorder
 pub use byteorder::{LittleEndian, BigEndian, NativeEndian};
+
