@@ -13,7 +13,7 @@ fn main() -> Fallible<()> {
         (Some(_), Some(s), Some(d)) => (s, d),
         (Some(program_name), _, _) => {
             eprintln!("Usage: {} <source> <dest>", program_name);
-            std::process::exit(-1)
+            return Ok(());
         }
         _ => panic!("Program has no path"),
     };

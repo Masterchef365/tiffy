@@ -1,5 +1,4 @@
-use crate::header::write_header;
-use crate::ifd::IFD;
+use crate::metadata::{header::write_header, ifd::IFD};
 use byteorder::{ByteOrder, WriteBytesExt};
 use failure::Fallible;
 use std::io::{Seek, SeekFrom};
@@ -13,7 +12,7 @@ pub struct MetadataWriter<E: ByteOrder> {
 }
 
 impl<E: ByteOrder> MetadataWriter<E> {
-    /// Create a MetadataWriter from `writer`. Note: Assumes the cursor is in a position ready for 
+    /// Create a MetadataWriter from `writer`. Note: Assumes the cursor is in a position ready for
     /// writing the new file.
     pub fn write_header<W: WriteBytesExt + Seek>(writer: &mut W) -> Fallible<Self> {
         // Write the header
@@ -32,7 +31,11 @@ impl<E: ByteOrder> MetadataWriter<E> {
     /// Write a single IFD (and its data) into the internal writer. Note: the cursor shall be
     /// advanced to a position after the data and IFD, ready for another write. Returns the
     /// position within the file of the beginning of the IFD just written.
-    pub fn write_ifd<W: WriteBytesExt + Seek>(&mut self, ifd: &IFD, writer: &mut W) -> Fallible<u64> {
+    pub fn write_ifd<W: WriteBytesExt + Seek>(
+        &mut self,
+        ifd: &IFD,
+        writer: &mut W,
+    ) -> Fallible<u64> {
         // Write out the fields
         let raw_ifd = ifd.write_to::<E, _>(writer)?;
 
@@ -57,7 +60,7 @@ impl<E: ByteOrder> MetadataWriter<E> {
 
         // Write the position of the IFD we just wrote to it
         writer.write_u32::<E>(ifd_table_position as u32)?;
-        
+
         // Save the pointer to the 'next IFD' in our struct
         self.last_ifd_pointer_position = next_ifd_table_pointer_position;
 

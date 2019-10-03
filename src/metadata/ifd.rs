@@ -1,5 +1,7 @@
-use crate::constants::ifd_field_type_magic::*;
-use crate::raw_ifd::{RawIFD, RawIFDField};
+use crate::metadata::{
+    constants::ifd_field_type_magic::*,
+    raw_ifd::{RawIFD, RawIFDField},
+};
 use byteorder::{ByteOrder, ReadBytesExt, WriteBytesExt};
 use std::io::{self, Cursor, Seek, SeekFrom};
 
@@ -249,7 +251,7 @@ impl IFD {
     /// Create an empty IFD.
     pub fn new() -> Self {
         Self {
-            entries: Vec::new()
+            entries: Vec::new(),
         }
     }
 

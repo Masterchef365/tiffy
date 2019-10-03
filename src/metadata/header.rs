@@ -1,6 +1,8 @@
-use crate::constants::header_magic::{BIG_ENDIAN_MAGIC, LITTLE_ENDIAN_MAGIC, VERSION_MAGIC};
+use crate::metadata::constants::header_magic::{
+    BIG_ENDIAN_MAGIC, LITTLE_ENDIAN_MAGIC, VERSION_MAGIC,
+};
 use byteorder::{ByteOrder, ReadBytesExt, WriteBytesExt};
-use failure::{Fallible, Fail};
+use failure::{Fail, Fallible};
 use std::io::Write;
 
 /// Represents an error encountered when reading a TIFF header.

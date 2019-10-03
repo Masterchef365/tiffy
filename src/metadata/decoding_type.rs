@@ -1,5 +1,4 @@
-use crate::constants::compression_type_magic::*;
-use crate::ifd::IFD;
+use crate::metadata::constants::compression_type_magic::*;
 
 /// Defines a Decoding Type for use between decoders.
 #[derive(Debug, Clone, Copy)]

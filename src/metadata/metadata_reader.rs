@@ -1,6 +1,8 @@
-use crate::header::{read_header_endian, read_header_magic};
-use crate::ifd::IFD;
-use crate::raw_ifd::*;
+use crate::metadata::{
+    header::{read_header_endian, read_header_magic},
+    ifd::IFD,
+    raw_ifd::*,
+};
 use byteorder::{BigEndian, ByteOrder, LittleEndian, ReadBytesExt};
 use failure::Fallible;
 use std::io::{Seek, SeekFrom};
@@ -72,7 +74,9 @@ pub fn read_ifd_table_endian<E: ByteOrder, R: ReadBytesExt + Seek>(
 
 /// Read all IFDs from `reader` table into memory sequentially.
 /// Assumes the cursor is positioned at a 32-bit pointer to the first valid IFD.
-pub fn read_raw_ifds<E: ByteOrder, R: ReadBytesExt + Seek>(reader: &mut R) -> Fallible<Box<[RawIFD]>> {
+pub fn read_raw_ifds<E: ByteOrder, R: ReadBytesExt + Seek>(
+    reader: &mut R,
+) -> Fallible<Box<[RawIFD]>> {
     let mut ifds = Vec::new();
     loop {
         let next_ifd_offset = reader.read_u32::<E>()?;
