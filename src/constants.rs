@@ -6,7 +6,7 @@ pub mod header_magic {
 }
 
 /// IFD Field types
-pub mod ifd_entry_type_magic {
+pub mod ifd_field_type_magic {
     // Baseline
     pub const IFD_TYPE_BYTE: u16 = 0x0001;
     pub const IFD_TYPE_ASCII: u16 = 0x0002;

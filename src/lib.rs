@@ -1,10 +1,10 @@
 /// Mid-level TIFF reader
-pub(crate) mod tiff_reader;
-pub use tiff_reader::*;
+pub(crate) mod ifd_reader;
+pub use ifd_reader::*;
 
 /// Mid-level TIFF writer
-pub(crate) mod tiff_writer;
-pub use tiff_writer::*;
+pub(crate) mod ifd_writer;
+pub use ifd_writer::*;
 
 /// Non-tag magic numbers
 pub mod constants;

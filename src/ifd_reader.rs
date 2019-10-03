@@ -3,20 +3,17 @@ use crate::ifd::IFD;
 use crate::raw_ifd::*;
 use byteorder::{BigEndian, ByteOrder, LittleEndian, ReadBytesExt};
 use failure::Fallible;
-use std::fs::File;
-use std::io::{BufReader, Seek, SeekFrom};
-use std::path::Path;
+use std::io::{Seek, SeekFrom};
 
 /// A Mid-level TIFF reader. Wraps `<Read + Seek>` for reading IFDs and raw strips.
-pub struct TiffReader {
+pub struct IFDReader {
     is_little_endian: bool,
     ifd_table: Box<[IFD]>,
 }
 
-impl TiffReader {
-    /// Create a new TiffReader from `reader`
+impl IFDReader {
+    /// Create a new IFDReader from `reader`
     pub fn from_reader<R: ReadBytesExt + Seek>(reader: &mut R) -> Fallible<Self> {
-        // Write headers
         let is_little_endian = read_header_endian(reader)?;
 
         let ifd_table = if is_little_endian {
@@ -31,7 +28,7 @@ impl TiffReader {
         })
     }
 
-    /// Read the IFD table starting at the `offset` (For use with e.g. SubIFDs)
+    /// Read the IFD table starting at the `offset` (For use SubIFDs for example)
     pub fn read_external_ifd_table<R: ReadBytesExt + Seek>(&mut self, offset: u64, reader: &mut R) -> Fallible<Box<[IFD]>> {
         reader.seek(SeekFrom::Start(offset))?;
         if self.is_little_endian {

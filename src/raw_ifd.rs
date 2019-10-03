@@ -3,7 +3,7 @@ use std::io::Error;
 
 /// A struct representing a low-level IFD value.
 #[derive(Debug, Clone, Copy)]
-pub struct RawIFDEntry {
+pub struct RawIFDField {
     /// Tag ID.
     pub tag: u16,
 
@@ -18,8 +18,8 @@ pub struct RawIFDEntry {
     pub value_or_offset: [u8; 4],
 }
 
-impl RawIFDEntry {
-    /// Read the entry value from `reader`.
+impl RawIFDField {
+    /// Read the field value from `reader`.
     pub fn from_reader<E: ByteOrder, R: ReadBytesExt>(
         reader: &mut R,
     ) -> Result<Self, Error> {
@@ -35,7 +35,7 @@ impl RawIFDEntry {
         })
     }
 
-    /// Write the entry value to `writer`.
+    /// Write the field value to `writer`.
     pub fn to_writer<E: ByteOrder, W: WriteBytesExt>(
         &self,
         writer: &mut W,
@@ -51,19 +51,19 @@ impl RawIFDEntry {
 /// A struct representing a low-level IFD.
 #[derive(Debug, Clone)]
 pub struct RawIFD {
-    pub entries: Vec<RawIFDEntry>,
+    pub entries: Vec<RawIFDField>,
 }
 
 impl RawIFD {
     /// Read an entire IFD from `reader` excluding the offset to the next IFD.
     pub fn from_reader<E: ByteOrder, R: ReadBytesExt>(reader: &mut R) -> Result<Self, Error> {
         // Read length header
-        let entry_count = reader.read_u16::<E>()? as usize;
+        let field_count = reader.read_u16::<E>()? as usize;
 
         // Read entries
-        let mut entries = Vec::with_capacity(entry_count);
-        for _ in 0..entry_count {
-            entries.push(RawIFDEntry::from_reader::<E, R>(reader)?);
+        let mut entries = Vec::with_capacity(field_count);
+        for _ in 0..field_count {
+            entries.push(RawIFDField::from_reader::<E, R>(reader)?);
         }
         Ok(Self { entries })
     }
@@ -76,8 +76,8 @@ impl RawIFD {
         writer.write_u16::<E>(self.entries.len() as u16)?;
 
         // Write entries
-        for entry in &self.entries {
-            entry.to_writer::<E, W>(writer)?;
+        for field in &self.entries {
+            field.to_writer::<E, W>(writer)?;
         }
         Ok(())
     }
