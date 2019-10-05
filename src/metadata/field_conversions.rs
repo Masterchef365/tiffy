@@ -1,8 +1,8 @@
-use crate::metadata::IFDFieldData;
+use crate::metadata::IFDField;
 use failure::{Fail, Fallible};
 use std::convert::TryInto;
 
-/// An error encountered during conversion from an IFDFieldData to another type
+/// An error encountered during conversion from an IFDField to another type
 #[derive(Fail, Debug)]
 pub enum FieldConvError {
     #[fail(display = "Tag has wrong data type")]
@@ -13,13 +13,13 @@ pub enum FieldConvError {
 
 macro_rules! impl_ifdfield_conv {
     { $t:ty, $v:path } => {
-        impl From<$t> for IFDFieldData {
+        impl From<$t> for IFDField {
             fn from(val: $t) -> Self {
                 $v(Box::new([val]))
             }
         }
 
-        impl TryInto<$t> for IFDFieldData {
+        impl TryInto<$t> for IFDField {
             type Error = FieldConvError;
             fn try_into(self) -> Result<$t, Self::Error> {
                 match self {
@@ -34,15 +34,15 @@ macro_rules! impl_ifdfield_conv {
     };
 }
 
-impl_ifdfield_conv!(u8, IFDFieldData::Byte);
-impl_ifdfield_conv!(u16, IFDFieldData::Short);
-impl_ifdfield_conv!(u32, IFDFieldData::Long);
-impl_ifdfield_conv!((u32, u32), IFDFieldData::Rational);
+impl_ifdfield_conv!(u8, IFDField::Byte);
+impl_ifdfield_conv!(u16, IFDField::Short);
+impl_ifdfield_conv!(u32, IFDField::Long);
+impl_ifdfield_conv!((u32, u32), IFDField::Rational);
 
 #[test]
 fn test_roundtrip_field_conversion() {
     let original = (8u32, 9u32);
-    let field: IFDFieldData = original.into();
+    let field: IFDField = original.into();
     let converted: (u32, u32) = field.try_into().unwrap();
     assert_eq!(converted, original);
 }
