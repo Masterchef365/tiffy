@@ -2,7 +2,7 @@ use crate::metadata::constants::compression_type_magic::*;
 
 /// Defines a Decoding Type for use between decoders.
 #[derive(Debug, Clone, Copy)]
-pub enum DecodingType {
+pub enum CompressionType {
     Uncompressed,
     CCITT1D,
     Group3Fax,
@@ -28,7 +28,7 @@ pub enum DecodingType {
     JBIG2,
 }
 
-impl Into<u16> for DecodingType {
+impl Into<u16> for CompressionType {
     fn into(self) -> u16 {
         match self {
             Self::Uncompressed => COMPRESSION_TYPE_UNCOMPRESSED,
@@ -58,8 +58,8 @@ impl Into<u16> for DecodingType {
     }
 }
 
-impl DecodingType {
-    /// Convert an integer into the specified DecodingType. Returns None if unrecognized.
+impl CompressionType {
+    /// Convert an integer into the specified CompressionType. Returns None if unrecognized.
     pub fn from_iteger(integer: u16) -> Option<Self> {
         match integer {
             COMPRESSION_TYPE_UNCOMPRESSED => Some(Self::Uncompressed),
