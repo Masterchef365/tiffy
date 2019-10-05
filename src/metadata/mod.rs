@@ -19,6 +19,8 @@ pub use header::*;
 
 /// High-level IFD abstrations
 pub(crate) mod ifd;
+pub(crate) mod ifd_field;
+pub use ifd_field::*;
 pub use ifd::*;
 
 /// RawIFDs are the non-dereferenced low-level versions of their high-level counterparts -
