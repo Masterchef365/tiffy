@@ -3,6 +3,7 @@ use crate::metadata::{
     raw_ifd::{RawIFD, RawIFDField},
 };
 use byteorder::{ByteOrder, ReadBytesExt, WriteBytesExt};
+use std::collections::HashMap;
 use std::io::{self, Cursor, Seek, SeekFrom};
 
 /// Decide whether or not the specified count of this tag type exceeds the 4-byte
@@ -44,7 +45,7 @@ fn iterate_null_terminated_ascii_as_utf8(bytes: &[u8]) -> impl Iterator<Item = &
 
 /// IFD Field Data, essentially a dynamic type representing TIFF's array fields.
 #[derive(Debug, Clone, PartialEq)]
-pub enum IFDFieldData {
+pub enum IFDField {
     Undefined(Box<[u8]>),
     Byte(Box<[u8]>),
     Ascii(Box<[String]>),
@@ -65,8 +66,8 @@ pub enum IFDFieldData {
     },
 }
 
-impl IFDFieldData {
-    /// Read the content from `reader` into this IFDFieldData, dereferencing offset pointers from `field`.
+impl IFDField {
+    /// Read the content from `reader` into this IFDField, dereferencing offset pointers from `field`.
     pub fn read_from<E: ByteOrder, R: ReadBytesExt + Seek>(
         reader: &mut R,
         field: &RawIFDField,
@@ -94,12 +95,12 @@ impl IFDFieldData {
             IFD_TYPE_BYTE => {
                 let mut buffer = vec![0; count];
                 reader.read_exact(&mut buffer)?;
-                IFDFieldData::Byte(buffer.into_boxed_slice())
+                IFDField::Byte(buffer.into_boxed_slice())
             }
             IFD_TYPE_ASCII => {
                 let mut buffer = vec![0; count];
                 reader.read_exact(&mut buffer)?;
-                IFDFieldData::Ascii(
+                IFDField::Ascii(
                     iterate_null_terminated_ascii_as_utf8(&buffer)
                         .map(String::from)
                         .collect(),
@@ -108,24 +109,24 @@ impl IFDFieldData {
             IFD_TYPE_SHORT => {
                 let mut buffer = vec![0; count];
                 reader.read_u16_into::<E>(&mut buffer)?;
-                IFDFieldData::Short(buffer.into_boxed_slice())
+                IFDField::Short(buffer.into_boxed_slice())
             }
             IFD_TYPE_LONG => {
                 let mut buffer = vec![0; count];
                 reader.read_u32_into::<E>(&mut buffer)?;
-                IFDFieldData::Long(buffer.into_boxed_slice())
+                IFDField::Long(buffer.into_boxed_slice())
             }
             IFD_TYPE_RATIONAL => {
                 let mut rational_buffer = Vec::with_capacity(count);
                 for _ in 0..count {
                     rational_buffer.push((reader.read_u32::<E>()?, reader.read_u32::<E>()?));
                 }
-                IFDFieldData::Rational(rational_buffer.into_boxed_slice())
+                IFDField::Rational(rational_buffer.into_boxed_slice())
             }
             IFD_TYPE_UNDEFINED => {
                 let mut buffer = vec![0; count];
                 reader.read_exact(&mut buffer)?;
-                IFDFieldData::Undefined(buffer.into_boxed_slice())
+                IFDField::Undefined(buffer.into_boxed_slice())
             }
             IFD_TYPE_SBYTE => unimplemented!("SByte IFD values"),
             IFD_TYPE_SSHORT => unimplemented!("SShort IFD values"),
@@ -136,7 +137,7 @@ impl IFDFieldData {
             _ => {
                 let mut value_or_offset = [0u8; 4];
                 reader.read_exact(&mut value_or_offset)?;
-                IFDFieldData::Unrecognized {
+                IFDField::Unrecognized {
                     tag_type,
                     count,
                     value_or_offset,
@@ -145,8 +146,33 @@ impl IFDFieldData {
         })
     }
 
+    pub fn write_to<E: ByteOrder, W: WriteBytesExt + Seek>(
+        &self,
+        writer: &mut W,
+        tag: u16,
+    ) -> Result<RawIFDField, io::Error> {
+        let mut value_or_offset = [0u8; 4];
+        let mut cursor = Cursor::new(&mut value_or_offset[..]);
+
+        let (tag_type, count) = self.get_type_and_count();
+        if tag_exceeds_ifd_field(tag_type, count) {
+            let data_offset = writer.seek(SeekFrom::Current(0))? as u32;
+            cursor.write_u32::<E>(data_offset)?;
+            self.write_field_into::<E, _>(writer)?;
+        } else {
+            self.write_field_into::<E, _>(&mut cursor)?;
+        }
+
+        Ok(RawIFDField {
+            tag,
+            tag_type,
+            count,
+            value_or_offset,
+        })
+    }
+
     /// Dump the data from this field into `writer`.
-    pub fn write_fields_into<E: ByteOrder, W: WriteBytesExt + Seek>(
+    pub fn write_field_into<E: ByteOrder, W: WriteBytesExt + Seek>(
         &self,
         writer: &mut W,
     ) -> Result<(), io::Error> {
@@ -196,67 +222,17 @@ impl IFDFieldData {
     }
 }
 
-/// An IFD field.
-#[derive(Debug, Clone, PartialEq)]
-pub struct IFDField {
-    pub tag: u16,
-    pub data: IFDFieldData,
-}
-
-impl IFDField {
-    /// Constructs a new IFDField from tag number and IFDFieldData.
-    pub fn new(tag: u16, data: IFDFieldData) -> Self {
-        Self { tag, data }
-    }
-
-    /// Read the data from this raw field, dereferencing offsets/pointers through `reader`.
-    pub fn read_from<E: ByteOrder, R: ReadBytesExt + Seek>(
-        reader: &mut R,
-        field: &RawIFDField,
-    ) -> Result<Self, io::Error> {
-        Ok(Self {
-            tag: field.tag,
-            data: IFDFieldData::read_from::<E, R>(reader, field)?,
-        })
-    }
-
-    /// Convert this field into a raw one, writing long data to `writer`.
-    pub fn write_to<E: ByteOrder, W: WriteBytesExt + Seek>(
-        &self,
-        writer: &mut W,
-    ) -> Result<RawIFDField, io::Error> {
-        let mut value_or_offset = [0u8; 4];
-        let mut cursor = Cursor::new(&mut value_or_offset[..]);
-
-        let (tag_type, count) = self.data.get_type_and_count();
-        if tag_exceeds_ifd_field(tag_type, count) {
-            let data_offset = writer.seek(SeekFrom::Current(0))? as u32;
-            cursor.write_u32::<E>(data_offset)?;
-            self.data.write_fields_into::<E, _>(writer)?;
-        } else {
-            self.data.write_fields_into::<E, _>(&mut cursor)?;
-        }
-
-        Ok(RawIFDField {
-            tag: self.tag,
-            tag_type,
-            count,
-            value_or_offset,
-        })
-    }
-}
-
 /// A high-level representation of an Image File Directory.
 #[derive(Debug, Clone, Default, PartialEq)]
 pub struct IFD {
-    pub entries: Vec<IFDField>,
+    pub entries: HashMap<u16, IFDField>,
 }
 
 impl IFD {
     /// Create an empty IFD.
     pub fn new() -> Self {
         Self {
-            entries: Vec::new(),
+            entries: HashMap::new(),
         }
     }
 
@@ -269,8 +245,11 @@ impl IFD {
             entries: raw_ifd
                 .entries
                 .iter()
-                .map(|field| IFDField::read_from::<E, R>(reader, field))
-                .collect::<Result<Vec<IFDField>, io::Error>>()?,
+                .map(|field| match IFDField::read_from::<E, R>(reader, field) {
+                    Ok(data) => Ok((field.tag, data)),
+                    Err(e) => Err(e),
+                })
+                .collect::<Result<HashMap<u16, IFDField>, io::Error>>()?,
         })
     }
 
@@ -284,27 +263,12 @@ impl IFD {
                 .entries
                 .iter()
                 // Do not write tag types we do not recognize, as it is impossible to do so correctly.
-                .filter(|field| match field.data {
-                    IFDFieldData::Unrecognized { .. } => false,
+                .filter(|(_tag, data)| match data {
+                    IFDField::Unrecognized { .. } => false,
                     _ => true,
                 })
-                .map(|field| field.write_to::<E, W>(writer))
+                .map(|(tag, data)| data.write_to::<E, W>(writer, *tag))
                 .collect::<Result<Vec<RawIFDField>, io::Error>>()?,
         })
-    }
-
-    pub fn add_tag(&mut self, tag: u16, data: IFDFieldData) {
-        self.entries.push(IFDField { tag, data });
-    }
-
-    pub fn get_tag(&self, tag: u16) -> Option<&IFDFieldData> {
-        self.entries.iter().find(|x| x.tag == tag).map(|x| &x.data)
-    }
-
-    pub fn get_tag_mut(&mut self, tag: u16) -> Option<&mut IFDFieldData> {
-        self.entries
-            .iter_mut()
-            .find(|x| x.tag == tag)
-            .map(|x| &mut x.data)
     }
 }
