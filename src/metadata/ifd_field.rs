@@ -12,10 +12,14 @@ pub enum IFDField {
     Short(Box<[u16]>),
     Long(Box<[u32]>),
     Rational(Box<[(u32, u32)]>),
-    /// The `type` field of the tag was unrecognized when reading.
+    /// The `type` field of the tag was unrecognized when reading. This variant will be ignored
+    /// when writing, as there is no way to know how to write it correctly.
     Unrecognized {
+        /// Integer representing the type of this tag.
         tag_type: u16,
-        count: usize,
+        /// Integer representing the quantity (not byte count) of this tag.
+        count: u32,
+        /// Either the tag's value, or a point to a location within the file.
         value_or_offset: [u8; 4],
     },
     /* Sbyte(Box<[i8]>),
@@ -35,30 +39,26 @@ impl IFDField {
         if tag_exceeds_ifd_field(field.tag_type, field.count) {
             let tag_data_offset = field.value_or_offset.as_ref().read_u32::<E>()?;
             reader.seek(SeekFrom::Start(tag_data_offset.into()))?;
-            Self::from_raw_field_reader::<E, R>(reader, field.tag_type, field.count as usize)
+            Self::from_raw_field_reader::<E, R>(reader, field.tag_type, field.count)
         } else {
             let mut tag_data_cursor = Cursor::new(field.value_or_offset);
-            Self::from_raw_field_reader::<E, _>(
-                &mut tag_data_cursor,
-                field.tag_type,
-                field.count as usize,
-            )
+            Self::from_raw_field_reader::<E, _>(&mut tag_data_cursor, field.tag_type, field.count)
         }
     }
 
     fn from_raw_field_reader<E: ByteOrder, R: ReadBytesExt>(
         reader: &mut R,
         tag_type: u16,
-        count: usize,
+        count: u32,
     ) -> Result<Self, io::Error> {
         Ok(match tag_type {
             IFD_TYPE_BYTE => {
-                let mut buffer = vec![0; count];
+                let mut buffer = vec![0; count as usize];
                 reader.read_exact(&mut buffer)?;
                 IFDField::Byte(buffer.into_boxed_slice())
             }
             IFD_TYPE_ASCII => {
-                let mut buffer = vec![0; count];
+                let mut buffer = vec![0; count as usize];
                 reader.read_exact(&mut buffer)?;
                 IFDField::Ascii(
                     iterate_null_terminated_ascii_as_utf8(&buffer)
@@ -67,24 +67,24 @@ impl IFDField {
                 )
             }
             IFD_TYPE_SHORT => {
-                let mut buffer = vec![0; count];
+                let mut buffer = vec![0; count as usize];
                 reader.read_u16_into::<E>(&mut buffer)?;
                 IFDField::Short(buffer.into_boxed_slice())
             }
             IFD_TYPE_LONG => {
-                let mut buffer = vec![0; count];
+                let mut buffer = vec![0; count as usize];
                 reader.read_u32_into::<E>(&mut buffer)?;
                 IFDField::Long(buffer.into_boxed_slice())
             }
             IFD_TYPE_RATIONAL => {
-                let mut rational_buffer = Vec::with_capacity(count);
+                let mut rational_buffer = Vec::with_capacity(count as usize);
                 for _ in 0..count {
                     rational_buffer.push((reader.read_u32::<E>()?, reader.read_u32::<E>()?));
                 }
                 IFDField::Rational(rational_buffer.into_boxed_slice())
             }
             IFD_TYPE_UNDEFINED => {
-                let mut buffer = vec![0; count];
+                let mut buffer = vec![0; count as usize];
                 reader.read_exact(&mut buffer)?;
                 IFDField::Undefined(buffer.into_boxed_slice())
             }
@@ -157,7 +157,9 @@ impl IFDField {
                     .write_u32::<E>(*a)
                     .and_then(|()| writer.write_u32::<E>(*b))
             }),
-            _ => panic!("Unrecognized tag types should be filtered before writing"),
+            Self::Unrecognized {
+                value_or_offset, ..
+            } => writer.write_all(value_or_offset),
         }
     }
 
@@ -177,11 +179,12 @@ impl IFDField {
             Self::Short(data) => (IFD_TYPE_SHORT, data.len() as u32),
             Self::Long(data) => (IFD_TYPE_LONG, data.len() as u32),
             Self::Rational(data) => (IFD_TYPE_RATIONAL, data.len() as u32),
-            _ => panic!("Unrecognized tag types should be filtered before writing"),
+            Self::Unrecognized {
+                tag_type, count, ..
+            } => (*tag_type, *count),
         }
     }
 }
-
 
 /// Decide whether or not the specified count of this tag type exceeds the 4-byte
 /// 'value_or_offset' field within the IFD tag field.
@@ -207,7 +210,7 @@ fn tag_exceeds_ifd_field(tag_type: u16, count: u32) -> bool {
         IFD_TYPE_SRATIONAL => true,
         IFD_TYPE_DOUBLE => true,
 
-        // Otherwise, assume it fits
+        // Otherwise, assume it fits (As it is unrecognized and custom-defined)
         _ => false,
     }
 }

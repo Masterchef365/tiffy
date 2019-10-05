@@ -43,11 +43,6 @@ impl IFD {
             entries: self
                 .entries
                 .iter()
-                // Do not write tag types we do not recognize, as it is impossible to do so correctly.
-                .filter(|(_tag, data)| match data {
-                    IFDField::Unrecognized { .. } => false,
-                    _ => true,
-                })
                 .map(|(tag, data)| data.write_to::<E, W>(writer, *tag))
                 .collect::<Result<Vec<RawIFDField>, io::Error>>()?,
         })

@@ -2,7 +2,7 @@ use failure::{format_err, Fallible};
 use std::fs::File;
 use std::io::{BufReader, BufWriter, Read, Seek, SeekFrom};
 use tiffy::metadata::{
-    tags, IFDFieldData, {MetadataReader, MetadataWriter, NativeEndian},
+    tags, IFDField, {MetadataReader, MetadataWriter, NativeEndian},
 };
 
 /// Rewrite (copy) an image's tags and data
@@ -27,11 +27,11 @@ fn main() -> Fallible<()> {
     for ifd in ifd_reader.ifds() {
         // Gather strip offsets and byte counts from the source image
         let (strip_offsets, strip_lengths) = match (
-            ifd.get_tag(tags::STRIP_OFFSETS),
-            ifd.get_tag(tags::STRIP_BYTE_COUNTS),
+            ifd.entries.get(&tags::STRIP_OFFSETS),
+            ifd.entries.get(&tags::STRIP_BYTE_COUNTS),
         ) {
-            (Some(IFDFieldData::Long(off)), Some(IFDFieldData::Long(len))) => Ok((off, len)),
-            (Some(_), None) | (None, Some(_)) | (None, None) => Err(format_err!("Missing tag")),
+            (Some(IFDField::Long(off)), Some(IFDField::Long(len))) => Ok((off, len)),
+            (Some(_), None) | (None, Some(_)) | (None, None) => Err(format_err!("Missing strip tag")),
             (Some(_), Some(_)) => Err(format_err!("Tag is of wrong type")),
         }?;
 
@@ -55,12 +55,20 @@ fn main() -> Fallible<()> {
 
         let mut new_ifd = ifd.clone();
 
-        // Set the strip offsets and lengths on the output image (they are different from the original)
-        *new_ifd.get_tag_mut(tags::STRIP_OFFSETS).unwrap() =
-            IFDFieldData::Long(strip_offsets_out.into_boxed_slice());
+        // Careful about blindly copying tags between files, Unrecognized tags will write out the
+        // _literal_ information from the tag instead of reordering it and setting a new pointer in
+        // the file. This library _does_ give you enough rope to hang yourself if you so choose.
+        new_ifd.entries.retain(|_, field| match field {
+            IFDField::Unrecognized { .. } => false,
+            _ => true,
+        });
 
-        *new_ifd.get_tag_mut(tags::STRIP_BYTE_COUNTS).unwrap() =
-            IFDFieldData::Long(strip_lengths_out.into_boxed_slice());
+        // Set the strip offsets and lengths on the output image (they are different from the original)
+        *new_ifd.entries.get_mut(&tags::STRIP_OFFSETS).unwrap() =
+            IFDField::Long(strip_offsets_out.into_boxed_slice());
+
+        *new_ifd.entries.get_mut(&tags::STRIP_BYTE_COUNTS).unwrap() =
+            IFDField::Long(strip_lengths_out.into_boxed_slice());
 
         // Write the modified IFD to output image
         ifd_writer.write_ifd(&new_ifd, &mut dest_file)?;
