@@ -1,7 +1,7 @@
 use failure::{format_err, Fallible};
 use std::fs::File;
 use std::io::{BufReader, BufWriter, Read, Seek, SeekFrom};
-use tiffy::{
+use tiffy::metadata::{
     tags, IFDFieldData, {MetadataReader, MetadataWriter, NativeEndian},
 };
 

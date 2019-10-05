@@ -171,7 +171,7 @@ impl IFDFieldData {
                     .write_u32::<E>(*a)
                     .and_then(|()| writer.write_u32::<E>(*b))
             }),
-            _ => unreachable!("Unrecognized tag types should be filtered before writing"),
+            _ => panic!("Unrecognized tag types should be filtered before writing"),
         }
     }
 
@@ -191,7 +191,7 @@ impl IFDFieldData {
             Self::Short(data) => (IFD_TYPE_SHORT, data.len() as u32),
             Self::Long(data) => (IFD_TYPE_LONG, data.len() as u32),
             Self::Rational(data) => (IFD_TYPE_RATIONAL, data.len() as u32),
-            _ => unreachable!("Unrecognized tag types should be filtered before writing"),
+            _ => panic!("Unrecognized tag types should be filtered before writing"),
         }
     }
 }
@@ -204,6 +204,11 @@ pub struct IFDField {
 }
 
 impl IFDField {
+    /// Constructs a new IFDField from tag number and IFDFieldData.
+    pub fn new(tag: u16, data: IFDFieldData) -> Self {
+        Self { tag, data }
+    }
+
     /// Read the data from this raw field, dereferencing offsets/pointers through `reader`.
     pub fn read_from<E: ByteOrder, R: ReadBytesExt + Seek>(
         reader: &mut R,

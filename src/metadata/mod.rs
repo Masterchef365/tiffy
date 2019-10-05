@@ -1,8 +1,12 @@
-/// Mid-level TIFF reader
+/// Conversions between some primitive types and IFDFieldData
+pub(crate) mod field_conversions;
+pub use field_conversions::*;
+
+/// TIFF metadata reader
 pub(crate) mod metadata_reader;
 pub use metadata_reader::*;
 
-/// Mid-level TIFF writer
+/// TIFF metadata writer
 pub(crate) mod metadata_writer;
 pub use metadata_writer::*;
 
@@ -24,9 +28,6 @@ pub use raw_ifd::*;
 
 /// Integer values of tags
 pub mod tags;
-
-pub(crate) mod decoding_type;
-pub use decoding_type::DecodingType;
 
 /// Byteorder
 pub use byteorder::{LittleEndian, BigEndian, NativeEndian};

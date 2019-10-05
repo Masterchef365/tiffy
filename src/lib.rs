@@ -2,4 +2,4 @@
 pub mod metadata;
 
 /// (De)compression and interpretaion for TIFF image data.
-pub mod compression;
+pub mod baseline;
