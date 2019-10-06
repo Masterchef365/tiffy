@@ -28,8 +28,5 @@ pub use ifd::*;
 pub(crate) mod raw_ifd;
 pub use raw_ifd::*;
 
-/// Integer values of tags
-pub mod tags;
-
 /// Byteorder
 pub use byteorder::{LittleEndian, BigEndian, NativeEndian};

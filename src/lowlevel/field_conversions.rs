@@ -1,4 +1,4 @@
-use crate::metadata::IFDField;
+use crate::lowlevel::IFDField;
 use failure::Fail;
 use std::convert::TryInto;
 

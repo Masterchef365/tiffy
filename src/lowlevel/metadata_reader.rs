@@ -1,4 +1,4 @@
-use crate::metadata::{
+use crate::lowlevel::{
     header::{read_header_endian, read_header_magic},
     ifd::IFD,
     raw_ifd::*,

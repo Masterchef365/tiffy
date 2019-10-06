@@ -1,5 +1,5 @@
-use crate::metadata::ifd_field::IFDField;
-use crate::metadata::raw_ifd::{RawIFD, RawIFDField};
+use crate::lowlevel::ifd_field::IFDField;
+use crate::lowlevel::raw_ifd::{RawIFD, RawIFDField};
 use byteorder::{ByteOrder, ReadBytesExt, WriteBytesExt};
 use std::collections::HashMap;
 use std::io::{self, Seek};

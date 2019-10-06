@@ -1,4 +1,4 @@
-use crate::metadata::constants::header_magic::{
+use crate::lowlevel::constants::header_magic::{
     BIG_ENDIAN_MAGIC, LITTLE_ENDIAN_MAGIC, VERSION_MAGIC,
 };
 use byteorder::{ByteOrder, ReadBytesExt, WriteBytesExt};

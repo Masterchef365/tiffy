@@ -1,4 +1,4 @@
-use crate::metadata::{header::write_header, ifd::IFD};
+use crate::lowlevel::{header::write_header, ifd::IFD};
 use byteorder::{ByteOrder, WriteBytesExt};
 use failure::Fallible;
 use std::io::{Seek, SeekFrom};

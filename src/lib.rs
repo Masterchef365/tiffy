@@ -1,5 +1,5 @@
 /// Headers, IFDs, and helpers.
-pub mod metadata;
+pub mod lowlevel;
 
 /// Helpers for baseline TIFF interpretation
 pub mod baseline;

@@ -1,4 +1,4 @@
-use crate::metadata::{constants::ifd_field_type_magic::*, raw_ifd::RawIFDField};
+use crate::lowlevel::{constants::ifd_field_type_magic::*, raw_ifd::RawIFDField};
 use byteorder::{ByteOrder, ReadBytesExt, WriteBytesExt};
 use std::io::{self, Cursor, Seek, SeekFrom};
 
