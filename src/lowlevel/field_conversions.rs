@@ -19,7 +19,7 @@ macro_rules! impl_ifdfield_conv {
             }
         }
 
-        impl TryInto<$t> for IFDField {
+        impl TryInto<$t> for &IFDField {
             type Error = FieldConvError;
             fn try_into(self) -> Result<$t, Self::Error> {
                 match self {
