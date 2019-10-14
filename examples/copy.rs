@@ -1,9 +1,10 @@
 use failure::{format_err, Fallible};
 use std::fs::File;
 use std::io::{BufReader, BufWriter, Read, Seek, SeekFrom};
-use tiffy::metadata::{
-    tags, IFDField, {MetadataReader, MetadataWriter, NativeEndian},
+use tiffy::lowlevel::{
+    IFDField, {MetadataReader, MetadataWriter, NativeEndian},
 };
+use tiffy::baseline::tags;
 
 /// Rewrite (copy) an image's tags and data
 fn main() -> Fallible<()> {

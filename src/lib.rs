@@ -3,3 +3,6 @@ pub mod lowlevel;
 
 /// Helpers for baseline TIFF interpretation
 pub mod baseline;
+
+/// Error types
+pub mod errors;

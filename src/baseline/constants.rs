@@ -1,5 +1,5 @@
 /// Compression magic numbers
-pub mod compression_type {
+pub mod compression {
     pub const UNCOMPRESSED: u16 = 0x0001;
     pub const CCITT_1D: u16 = 0x0002;
     pub const GROUP_3_FAX: u16 = 0x0003;
@@ -23,6 +23,36 @@ pub mod compression_type {
     pub const JPEG2000: u16 = 0x8798;
     pub const NIKON_NEF: u16 = 0x8799;
     pub const JBIG2: u16 = 0x879B;
+
+    /// Return known compression types as strings
+    pub fn to_string(ctype: u16) -> &'static str {
+        match ctype {
+            UNCOMPRESSED => "Uncompressed",
+            CCITT_1D => "CCITT_1D",
+            GROUP_3_FAX => "Group 3 Fax",
+            GROUP_4_FAX => "Group 4 Fax",
+            LZW => "LZW",
+            JPEG => "JPEG",
+            NEW_JPEG => "NewJPEG",
+            ADOBE_DEFLATE => "Adobe Deflate",
+            JBIG_T85 => "Jbig T85",
+            JBIG_T43 => "Jbig T43",
+            NEXT => "Next",
+            PACKBITS => "Packbits",
+            THUNDERSCAN => "ThunderScan",
+            RASTERPADDING => "RasterPadding",
+            RLE_LINEWORK => "RLE linework",
+            RLE_HIGH_RES => "RLE high res",
+            RLE_BINARY_LINE => "RLE binary line",
+            DEFLATE_PKZIP => "Deflate PKzip",
+            KODAK_DCS => "Kodak DCS",
+            JBIG => "JBIG",
+            JPEG2000 => "JPEG2000",
+            NIKON_NEF => "Nikon NEF",
+            JBIG2 => "JBIG2",
+            _ => "<Unrecognized>",
+        }
+    }
 }
 
 /// Photometic Interpretation magic
@@ -35,4 +65,19 @@ pub mod photometic_interpretation {
     pub const CMYK: u16 = 0x0005;
     pub const YCBCR: u16 = 0x0006;
     pub const CIELAB: u16 = 0x0008;
+
+    /// Return known photometic interpretation types as strings
+    pub fn to_string(ptype: u16) -> &'static str {
+        match ptype {
+            WHITEISZERO => "White Is Zero",
+            BLACKISZERO => "Black Is Zero",
+            RGB => "RGB",
+            RGB_PALETTE => "RGB Palette",
+            TRANSPARENCY_MASK => "Transparency Mask",
+            CMYK => "CMYK",
+            YCBCR => "YCbCr",
+            CIELAB => "CIELAB",
+            _ => "<Unrecognized>",
+        }
+    }
 }

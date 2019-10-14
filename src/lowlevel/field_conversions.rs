@@ -1,36 +1,45 @@
-use crate::lowlevel::IFDField;
-use failure::Fail;
-use std::convert::TryInto;
+use crate::errors::FieldExtractionError;
+use crate::lowlevel::{IFDField, IFD};
+use std::convert::{TryFrom, TryInto};
 
-/// An error encountered during conversion from an IFDField to another type
-#[derive(Fail, Debug)]
-pub enum FieldConvError {
-    #[fail(display = "Tag has wrong data type")]
-    WrongDataType,
-    #[fail(display = "Tag contains insufficient data")]
-    InsufficientData,
+impl IFD {
+    pub fn get<T>(&self, tag: u16) -> Result<T, FieldExtractionError>
+    where
+        IFDField: TryInto<T, Error = FieldExtractionError>,
+    {
+        self.entries
+            .get(&tag)
+            .cloned()
+            .ok_or(FieldExtractionError::MissingTag { tag })?
+            .try_into()
+    }
 }
 
 macro_rules! impl_ifdfield_conv {
     { $t:ty, $v:path } => {
-        impl From<$t> for IFDField {
-            fn from(val: $t) -> Self {
-                $v(Box::new([val]))
-            }
-        }
-
-        impl TryInto<$t> for &IFDField {
-            type Error = FieldConvError;
+        impl TryInto<$t> for IFDField {
+            type Error = FieldExtractionError;
             fn try_into(self) -> Result<$t, Self::Error> {
                 match self {
                     $v(val) => val
                         .get(0)
                         .copied()
-                        .ok_or(FieldConvError::InsufficientData),
-                    _ => Err(FieldConvError::WrongDataType),
+                        .ok_or(FieldExtractionError::InsufficientData),
+                    _ => Err(FieldExtractionError::WrongDataType),
                 }
             }
         }
+
+        impl TryInto<Box<[$t]>> for IFDField {
+            type Error = FieldExtractionError;
+            fn try_into(self) -> Result<Box<[$t]>, Self::Error> {
+                match self {
+                    $v(val) => Ok(val),
+                    _ => Err(FieldExtractionError::WrongDataType),
+                }
+            }
+        }
+
     };
 }
 
@@ -38,11 +47,3 @@ impl_ifdfield_conv!(u8, IFDField::Byte);
 impl_ifdfield_conv!(u16, IFDField::Short);
 impl_ifdfield_conv!(u32, IFDField::Long);
 impl_ifdfield_conv!((u32, u32), IFDField::Rational);
-
-#[test]
-fn test_roundtrip_field_conversion() {
-    let original = (8u32, 9u32);
-    let field: IFDField = original.into();
-    let converted: (u32, u32) = field.try_into().unwrap();
-    assert_eq!(converted, original);
-}
