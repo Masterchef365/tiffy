@@ -1,15 +1,14 @@
 use crate::errors::FieldExtractionError;
 use crate::lowlevel::{IFDField, IFD};
-use std::convert::{TryFrom, TryInto};
+use std::convert::TryInto;
 
 impl IFD {
-    pub fn get<T>(&self, tag: u16) -> Result<T, FieldExtractionError>
+    pub fn get<'a, T>(&'a self, tag: u16) -> Result<T, FieldExtractionError>
     where
-        IFDField: TryInto<T, Error = FieldExtractionError>,
+        &'a IFDField: TryInto<T, Error = FieldExtractionError>,
     {
         self.entries
             .get(&tag)
-            .cloned()
             .ok_or(FieldExtractionError::MissingTag { tag })?
             .try_into()
     }
@@ -17,29 +16,15 @@ impl IFD {
 
 macro_rules! impl_ifdfield_conv {
     { $t:ty, $v:path } => {
-        impl TryInto<$t> for IFDField {
+        impl<'a> TryInto<&'a [$t]> for &'a IFDField {
             type Error = FieldExtractionError;
-            fn try_into(self) -> Result<$t, Self::Error> {
-                match self {
-                    $v(val) => val
-                        .get(0)
-                        .copied()
-                        .ok_or(FieldExtractionError::InsufficientData),
-                    _ => Err(FieldExtractionError::WrongDataType),
-                }
-            }
-        }
-
-        impl TryInto<Box<[$t]>> for IFDField {
-            type Error = FieldExtractionError;
-            fn try_into(self) -> Result<Box<[$t]>, Self::Error> {
+            fn try_into(self) -> Result<&'a [$t], Self::Error> {
                 match self {
                     $v(val) => Ok(val),
                     _ => Err(FieldExtractionError::WrongDataType),
                 }
             }
         }
-
     };
 }
 
