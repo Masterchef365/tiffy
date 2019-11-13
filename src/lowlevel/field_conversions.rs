@@ -25,10 +25,19 @@ macro_rules! impl_ifdfield_conv {
                 }
             }
         }
+
+        impl<'a> TryInto<&'a $t> for &'a IFDField {
+            type Error = FieldExtractionError;
+            fn try_into(self) -> Result<&'a $t, Self::Error> {
+                let array: &[$t] = self.try_into()?;
+                array.get(0).ok_or(FieldExtractionError::InsufficientData)
+            }
+        }
     };
 }
 
 impl_ifdfield_conv!(u8, IFDField::Byte);
 impl_ifdfield_conv!(u16, IFDField::Short);
 impl_ifdfield_conv!(u32, IFDField::Long);
+impl_ifdfield_conv!(String, IFDField::Ascii);
 impl_ifdfield_conv!((u32, u32), IFDField::Rational);

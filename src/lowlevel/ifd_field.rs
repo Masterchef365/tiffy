@@ -19,7 +19,7 @@ pub enum IFDField {
         tag_type: u16,
         /// Integer representing the quantity (not byte count) of this tag.
         count: u32,
-        /// Either the tag's value, or a point to a location within the file.
+        /// Either the tag's value, or a pointer to a location within the file.
         value_or_offset: [u8; 4],
     },
     /* Sbyte(Box<[i8]>),
@@ -215,7 +215,8 @@ fn tag_exceeds_ifd_field(tag_type: u16, count: u32) -> bool {
     }
 }
 
-/// Convert a TIFF Ascii sequence to string slices.
+// TODO: Do not ignore non-utf8 strings, or at least warn about these
+/// Convert a TIFF Ascii sequence to string slices. 
 fn iterate_null_terminated_ascii_as_utf8(bytes: &[u8]) -> impl Iterator<Item = &str> {
     bytes
         .split(|x| *x == b'\0')

@@ -1,4 +1,4 @@
-use failure::{format_err, Fallible};
+use failure::Fallible;
 use std::fs::File;
 use std::io::{BufReader, BufWriter, Read, Seek, SeekFrom};
 use tiffy::lowlevel::{
@@ -27,14 +27,8 @@ fn main() -> Fallible<()> {
 
     for ifd in ifd_reader.ifds() {
         // Gather strip offsets and byte counts from the source image
-        let (strip_offsets, strip_lengths) = match (
-            ifd.entries.get(&tags::STRIP_OFFSETS),
-            ifd.entries.get(&tags::STRIP_BYTE_COUNTS),
-        ) {
-            (Some(IFDField::Long(off)), Some(IFDField::Long(len))) => Ok((off, len)),
-            (Some(_), None) | (None, Some(_)) | (None, None) => Err(format_err!("Missing strip tag")),
-            (Some(_), Some(_)) => Err(format_err!("Tag is of wrong type")),
-        }?;
+        let strip_offsets = ifd.get::<&[u32]>(tags::STRIP_OFFSETS)?;
+        let strip_lengths = ifd.get::<&[u32]>(tags::STRIP_BYTE_COUNTS)?;
 
         // Create buffers for strips and lengths produced by the ifd_writer
         let mut strip_offsets_out = Vec::new();
