@@ -33,7 +33,7 @@ impl MetadataReader {
         })
     }
 
-    /// Read the IFD table starting at the `offset` (For use SubIFDs for example).
+    /// Read the IFD table starting at `offset` within the reader (For use with sub-IFDs for example).
     pub fn read_external_ifd_table<R: ReadBytesExt + Seek>(
         &mut self,
         offset: u64,

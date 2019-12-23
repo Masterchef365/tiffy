@@ -1,10 +1,8 @@
 use failure::Fallible;
 use std::fs::File;
 use std::io::{BufReader, BufWriter, Read, Seek, SeekFrom};
-use tiffy::lowlevel::{
-    IFDField, {MetadataReader, MetadataWriter, NativeEndian},
-};
 use tiffy::baseline::tags;
+use tiffy::lowlevel::{IFDField, MetadataReader, MetadataWriter, NativeEndian};
 
 /// Rewrite (copy) an image's tags and data
 fn main() -> Fallible<()> {
@@ -19,9 +17,11 @@ fn main() -> Fallible<()> {
         _ => panic!("Program has no path"),
     };
 
-    // Create ifd_reader and ifd_writer
+    // Open files
     let mut source_file = BufReader::new(File::open(source_path)?);
     let mut dest_file = BufWriter::new(File::create(dest_path)?);
+
+    // Create helpers
     let ifd_reader = MetadataReader::read_header(&mut source_file)?;
     let mut ifd_writer = MetadataWriter::<NativeEndian>::write_header(&mut dest_file)?;
 

@@ -36,13 +36,13 @@ impl<E: ByteOrder> MetadataWriter<E> {
         ifd: &IFD,
         writer: &mut W,
     ) -> Fallible<u64> {
-        // Write out the fields
+        // Write out the ifd's long-form data
         let raw_ifd = ifd.write_to::<E, _>(writer)?;
 
         // Save the current cursor position as it will become the pointer to the next IFD
         let ifd_table_position = writer.seek(SeekFrom::Current(0))?;
 
-        // Write the IFD into the file
+        // Write the IFD describing the data into the file
         raw_ifd.to_writer::<E, _>(writer)?;
 
         // Create a pointer to the 'next IFD' pointer

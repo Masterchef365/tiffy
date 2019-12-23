@@ -106,6 +106,7 @@ impl IFDField {
         })
     }
 
+    /// Write this IFDField into `writer`
     pub fn write_to<E: ByteOrder, W: WriteBytesExt + Seek>(
         &self,
         writer: &mut W,
@@ -114,7 +115,8 @@ impl IFDField {
         let mut value_or_offset = [0u8; 4];
         let mut cursor = Cursor::new(&mut value_or_offset[..]);
 
-        let (tag_type, count) = self.get_type_and_count();
+        let tag_type = self.type_number();
+        let count = self.count() as u32;
         if tag_exceeds_ifd_field(tag_type, count) {
             let data_offset = writer.seek(SeekFrom::Current(0))? as u32;
             cursor.write_u32::<E>(data_offset)?;
@@ -164,31 +166,41 @@ impl IFDField {
     }
 
     /// Get the `type` of data in this field, and the value of the `count` field.
-    pub fn get_type_and_count(&self) -> (u16, u32) {
+    pub fn count(&self) -> usize {
         match self {
-            Self::Undefined(data) => (IFD_TYPE_UNDEFINED, data.len() as u32),
-            Self::Byte(data) => (IFD_TYPE_BYTE, data.len() as u32),
+            Self::Undefined(data) => data.len(),
+            Self::Byte(data) => data.len(),
             Self::Ascii(strings) => {
-                let mut length: u32 = 0;
+                let mut length: usize = 0;
                 for string in strings.iter() {
-                    length += string.as_bytes().len() as u32;
+                    length += string.as_bytes().len();
                     length += 1; // For null character
                 }
-                (IFD_TYPE_ASCII, length)
+                length
             }
-            Self::Short(data) => (IFD_TYPE_SHORT, data.len() as u32),
-            Self::Long(data) => (IFD_TYPE_LONG, data.len() as u32),
-            Self::Rational(data) => (IFD_TYPE_RATIONAL, data.len() as u32),
-            Self::Unrecognized {
-                tag_type, count, ..
-            } => (*tag_type, *count),
+            Self::Short(data) => data.len(),
+            Self::Long(data) => data.len(),
+            Self::Rational(data) => data.len(),
+            Self::Unrecognized { count, .. } => *count as usize,
+        }
+    }
+
+    pub fn type_number(&self) -> u16 {
+        match self {
+            Self::Undefined(_) => IFD_TYPE_UNDEFINED,
+            Self::Byte(_) => IFD_TYPE_BYTE,
+            Self::Ascii(_) => IFD_TYPE_ASCII,
+            Self::Short(_) => IFD_TYPE_SHORT,
+            Self::Long(_) => IFD_TYPE_LONG,
+            Self::Rational(_) => IFD_TYPE_RATIONAL,
+            Self::Unrecognized { tag_type, .. } => *tag_type,
         }
     }
 }
 
 /// Decide whether or not the specified count of this tag type exceeds the 4-byte
 /// 'value_or_offset' field within the IFD tag field.
-fn tag_exceeds_ifd_field(tag_type: u16, count: u32) -> bool {
+pub fn tag_exceeds_ifd_field(tag_type: u16, count: u32) -> bool {
     match tag_type {
         // Single byte per unit fields
         IFD_TYPE_BYTE if count > 4 => true,
@@ -216,7 +228,7 @@ fn tag_exceeds_ifd_field(tag_type: u16, count: u32) -> bool {
 }
 
 // TODO: Do not ignore non-utf8 strings, or at least warn about these
-/// Convert a TIFF Ascii sequence to string slices. 
+/// Convert a TIFF Ascii sequence to string slices.
 fn iterate_null_terminated_ascii_as_utf8(bytes: &[u8]) -> impl Iterator<Item = &str> {
     bytes
         .split(|x| *x == b'\0')

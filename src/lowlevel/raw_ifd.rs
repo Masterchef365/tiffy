@@ -43,8 +43,7 @@ impl RawIFDField {
         writer.write_u16::<E>(self.tag)?;
         writer.write_u16::<E>(self.tag_type)?;
         writer.write_u32::<E>(self.count)?;
-        writer.write_all(&self.value_or_offset)?;
-        Ok(())
+        writer.write_all(&self.value_or_offset)
     }
 }
 
