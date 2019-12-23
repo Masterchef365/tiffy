@@ -86,7 +86,7 @@ pub fn read_raw_ifds<E: ByteOrder, R: ReadBytesExt + Seek>(
         }
         pointers_encountered.push(next_ifd_offset);
         reader.seek(SeekFrom::Start(next_ifd_offset.into()))?;
-        ifds.push(RawIFD::from_reader::<E, R>(reader)?);
+        ifds.push(RawIFD::read_from::<E, R>(reader)?);
     }
     Ok(ifds.into_boxed_slice())
 }

@@ -43,7 +43,7 @@ impl<E: ByteOrder> MetadataWriter<E> {
         let ifd_table_position = writer.seek(SeekFrom::Current(0))?;
 
         // Write the IFD describing the data into the file
-        raw_ifd.to_writer::<E, _>(writer)?;
+        raw_ifd.write_to::<E, _>(writer)?;
 
         // Create a pointer to the 'next IFD' pointer
         let next_ifd_table_pointer_position = writer.seek(SeekFrom::Current(0))?;

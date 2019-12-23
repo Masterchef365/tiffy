@@ -20,7 +20,7 @@ pub struct RawIFDField {
 
 impl RawIFDField {
     /// Read the field value from `reader`.
-    pub fn from_reader<E: ByteOrder, R: ReadBytesExt>(
+    pub fn read_from<E: ByteOrder, R: ReadBytesExt>(
         reader: &mut R,
     ) -> Result<Self, Error> {
         Ok(Self {
@@ -36,7 +36,7 @@ impl RawIFDField {
     }
 
     /// Write the field value to `writer`.
-    pub fn to_writer<E: ByteOrder, W: WriteBytesExt>(
+    pub fn write_to<E: ByteOrder, W: WriteBytesExt>(
         &self,
         writer: &mut W,
     ) -> Result<(), std::io::Error> {
@@ -55,20 +55,20 @@ pub struct RawIFD {
 
 impl RawIFD {
     /// Read an entire IFD from `reader` excluding the offset to the next IFD.
-    pub fn from_reader<E: ByteOrder, R: ReadBytesExt>(reader: &mut R) -> Result<Self, Error> {
+    pub fn read_from<E: ByteOrder, R: ReadBytesExt>(reader: &mut R) -> Result<Self, Error> {
         // Read length header
         let field_count = reader.read_u16::<E>()? as usize;
 
         // Read entries
         let mut entries = Vec::with_capacity(field_count);
         for _ in 0..field_count {
-            entries.push(RawIFDField::from_reader::<E, R>(reader)?);
+            entries.push(RawIFDField::read_from::<E, R>(reader)?);
         }
         Ok(Self { entries })
     }
 
     /// Write an entire IFD to `writer` excluding the offset to the next IFD.
-    pub fn to_writer<E: ByteOrder, W: WriteBytesExt>(&self, writer: &mut W) -> Result<(), Error> {
+    pub fn write_to<E: ByteOrder, W: WriteBytesExt>(&self, writer: &mut W) -> Result<(), Error> {
         assert!(self.entries.len() < std::u16::MAX as usize);
 
         // Write length header
@@ -76,7 +76,7 @@ impl RawIFD {
 
         // Write entries
         for field in &self.entries {
-            field.to_writer::<E, W>(writer)?;
+            field.write_to::<E, W>(writer)?;
         }
         Ok(())
     }
