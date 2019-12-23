@@ -12,8 +12,8 @@ pub struct MetadataWriter<E: ByteOrder> {
 }
 
 impl<E: ByteOrder> MetadataWriter<E> {
-    /// Create a MetadataWriter from `writer`. Note: Assumes the cursor is in a position ready for
-    /// writing the new file.
+    /// Create a new MetadataWriter, writing a header to `writer`. 
+    /// Note: Assumes the cursor is in a position ready for writing the new file.
     pub fn write_header<W: WriteBytesExt + Seek>(writer: &mut W) -> Fallible<Self> {
         // Write the header
         write_header::<E, _>(writer)?;
@@ -28,9 +28,9 @@ impl<E: ByteOrder> MetadataWriter<E> {
         })
     }
 
-    /// Write a single IFD (and its data) into the internal writer. Note: the cursor shall be
+    /// Write a single IFD (and its data) into `writer`. Note: the cursor shall be
     /// advanced to a position after the data and IFD, ready for another write. Returns the
-    /// position within the file of the beginning of the IFD just written.
+    /// position within the file of the beginning of the IFD just written (Useful for sub-IFDs).
     pub fn write_ifd<W: WriteBytesExt + Seek>(
         &mut self,
         ifd: &IFD,

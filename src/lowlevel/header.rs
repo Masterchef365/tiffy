@@ -14,7 +14,7 @@ pub enum HeaderError {
     BadMagic { magic: u16 },
 }
 
-/// Determine the endian of the file in `reader`. returns `true` if the file is little-endian.
+/// Determine the endian of the file in `reader`. Returns `true` if the file is little-endian.
 pub fn read_header_endian<R: ReadBytesExt>(reader: &mut R) -> Fallible<bool> {
     let mut endian_magic = [0u8; 2];
     reader.read_exact(&mut endian_magic)?;
@@ -35,12 +35,12 @@ pub fn read_header_magic<E: ByteOrder, R: ReadBytesExt>(reader: &mut R) -> Falli
     }
 }
 
-/// Little hack to determine endianness at runtime from Endian type.
+/// Little hack to determine endianness at runtime from ByteOrder trait.
 fn endian_type_is_little<E: ByteOrder>() -> bool {
     E::read_u16(&[42, 0]) == 42
 }
 
-/// Write the header and magic number to `writer`.
+/// Write the TIFF endian header and magic number to `writer`.
 pub fn write_header<E: ByteOrder, W: Write>(writer: &mut W) -> Result<(), std::io::Error> {
     if endian_type_is_little::<E>() {
         writer.write(&LITTLE_ENDIAN_MAGIC)
