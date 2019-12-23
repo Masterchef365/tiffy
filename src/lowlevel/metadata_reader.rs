@@ -78,11 +78,13 @@ pub fn read_raw_ifds<E: ByteOrder, R: ReadBytesExt + Seek>(
     reader: &mut R,
 ) -> Fallible<Box<[RawIFD]>> {
     let mut ifds = Vec::new();
+    let mut pointers_encountered = Vec::new(); // Break if a loop is found within the IFD pointers
     loop {
         let next_ifd_offset = reader.read_u32::<E>()?;
-        if next_ifd_offset == 0 {
+        if next_ifd_offset == 0 || pointers_encountered.contains(&next_ifd_offset) {
             break;
         }
+        pointers_encountered.push(next_ifd_offset);
         reader.seek(SeekFrom::Start(next_ifd_offset.into()))?;
         ifds.push(RawIFD::from_reader::<E, R>(reader)?);
     }
