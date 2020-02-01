@@ -23,8 +23,8 @@ pub enum IFDField {
         value_or_offset: [u8; 4],
     },
     /* Sbyte(Box<[i8]>),
-    Sshort(Box<[i16]>),
-    Slong(Box<[i32]>),
+    SShort(Box<[i16]>),
+    SLong(Box<[i32]>),
     SRational(Box<[(i32, i32)]>),
     Double(Box<[f64]>),
     Float(Box<[f32]>), */

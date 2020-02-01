@@ -7,6 +7,7 @@ use std::io::{self, Seek};
 /// A high-level representation of an Image File Directory.
 #[derive(Debug, Clone, Default, PartialEq)]
 pub struct IFD {
+    /// HashMap of entries by Tag to IFDField
     pub entries: HashMap<u16, IFDField>,
 }
 

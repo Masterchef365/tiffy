@@ -33,6 +33,16 @@ macro_rules! impl_ifdfield_conv {
                 array.get(0).ok_or(FieldExtractionError::InsufficientData)
             }
         }
+
+        impl<'a> TryInto<$t> for &'a IFDField {
+            type Error = FieldExtractionError;
+            fn try_into(self) -> Result<$t, Self::Error> {
+                let array: &[$t] = self.try_into()?;
+                Ok(array.get(0).ok_or(FieldExtractionError::InsufficientData)?.clone())
+            }
+        }
+
+
     };
 }
 

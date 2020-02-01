@@ -1,3 +1,5 @@
+#![forbid(unsafe_code)]
+
 /// Headers, IFDs, and helpers.
 pub mod lowlevel;
 

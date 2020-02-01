@@ -27,8 +27,8 @@ fn main() -> Fallible<()> {
 
     for ifd in ifd_reader.ifds() {
         // Gather strip offsets and byte counts from the source image
-        let strip_offsets = ifd.get::<&[u32]>(tags::STRIP_OFFSETS)?;
-        let strip_lengths = ifd.get::<&[u32]>(tags::STRIP_BYTE_COUNTS)?;
+        let strip_offsets: &[u32] = ifd.get(tags::STRIP_OFFSETS)?;
+        let strip_lengths: &[u32] = ifd.get(tags::STRIP_BYTE_COUNTS)?;
 
         // Create buffers for strips and lengths produced by the ifd_writer
         let mut strip_offsets_out = Vec::new();
