@@ -8,8 +8,5 @@ pub enum FieldExtractionError {
     #[fail(display = "Tag contains insufficient data")]
     InsufficientData,
     #[fail(display = "Missing tag {:X}", tag)]
-    MissingTag {
-        tag: u16,
-    }
+    MissingTag { tag: u16 },
 }
-

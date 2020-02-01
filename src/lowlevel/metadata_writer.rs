@@ -12,7 +12,7 @@ pub struct MetadataWriter<E: ByteOrder> {
 }
 
 impl<E: ByteOrder> MetadataWriter<E> {
-    /// Create a new MetadataWriter, writing a header to `writer`. 
+    /// Create a new MetadataWriter, writing a header to `writer`.
     /// Note: Assumes the cursor is in a position ready for writing the new file.
     pub fn write_header<W: WriteBytesExt + Seek>(writer: &mut W) -> Fallible<Self> {
         // Write the header

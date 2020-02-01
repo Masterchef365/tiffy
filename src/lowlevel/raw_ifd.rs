@@ -20,9 +20,7 @@ pub struct RawIFDField {
 
 impl RawIFDField {
     /// Read the field value from `reader`.
-    pub fn read_from<E: ByteOrder, R: ReadBytesExt>(
-        reader: &mut R,
-    ) -> Result<Self, Error> {
+    pub fn read_from<E: ByteOrder, R: ReadBytesExt>(reader: &mut R) -> Result<Self, Error> {
         Ok(Self {
             tag: reader.read_u16::<E>()?,
             tag_type: reader.read_u16::<E>()?,

@@ -20,8 +20,8 @@ pub use header::*;
 /// High-level IFD abstrations
 pub(crate) mod ifd;
 pub(crate) mod ifd_field;
-pub use ifd_field::*;
 pub use ifd::*;
+pub use ifd_field::*;
 
 /// RawIFDs are the non-dereferenced low-level versions of their high-level counterparts -
 /// they usually only contain the pointers to other data within the TIFF file.
@@ -29,4 +29,4 @@ pub(crate) mod raw_ifd;
 pub use raw_ifd::*;
 
 /// Byteorder
-pub use byteorder::{LittleEndian, BigEndian, NativeEndian};
+pub use byteorder::{BigEndian, LittleEndian, NativeEndian};
